@@ -129,10 +129,16 @@ pub struct Layout {
 
 impl Layout {
     
-    pub unsafe fn new(hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Self {
+    unsafe fn new(hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Self {
+
+        let mut monitor_info = windows::Win32::Graphics::Gdi::MONITORINFO::default();
+
+        monitor_info.cbSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32;
+
+        let _ = windows::Win32::Graphics::Gdi::GetMonitorInfoA(hmonitor, &mut monitor_info);
 
         let mut ret = Layout {
-            monitor_rect: windows::Win32::Foundation::RECT::default(),
+            monitor_rect: monitor_info.rcWork,
             padding: 0,
             zones: Vec::new(),
             manual_zones_until: 1,
@@ -140,94 +146,10 @@ impl Layout {
             positions: Vec::new(),
         };
 
-        let mut monitor_info = windows::Win32::Graphics::Gdi::MONITORINFO::default();
-
-        monitor_info.cbSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32;
-
-        windows::Win32::Graphics::Gdi::GetMonitorInfoA(hmonitor, &mut monitor_info);
-
-        ret.monitor_rect = monitor_info.rcWork;
-
         ret.zones.push(vec![Zone::new(ret.monitor_rect.left, ret.monitor_rect.top, ret.monitor_rect.right, ret.monitor_rect.bottom)]);
 
         return ret;
     
-    }
-
-    pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Option<Layout> {
-
-        let mut monitor_info = windows::Win32::Graphics::Gdi::MONITORINFO::default();
-
-        monitor_info.cbSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32;
-
-        windows::Win32::Graphics::Gdi::GetMonitorInfoA(hmonitor, &mut monitor_info);
-        
-        let monitor_rect = monitor_info.rcWork;
-
-        if monitor_rect == layout.monitor_rect {
-
-            return None;
-
-        }
-
-        println!("{:?}", monitor_rect);
-
-        let original_width = (layout.monitor_rect.right - layout.monitor_rect.left) as f64;
-
-        let original_height = (layout.monitor_rect.bottom - layout.monitor_rect.top) as f64 ;
-
-        let new_width = (monitor_rect.right - monitor_rect.left) as f64;
-        
-        let new_height = (monitor_rect.bottom - monitor_rect.top) as f64;
-
-        let mut ret = layout.clone();
-
-        for zones in ret.zones.iter_mut() {
-
-            for zone in zones {
-
-                zone.left -= layout.monitor_rect.left;
-
-                zone.top -= layout.monitor_rect.top;
-
-                zone.right -= layout.monitor_rect.left;
-
-                zone.bottom -= layout.monitor_rect.top;
-
-                if new_width != original_width {
-
-                    zone.left = ((zone.left as f64*new_width)/original_width).round() as i32;
-                    
-                    zone.right = ((zone.right as f64*new_width)/original_width).round() as i32;
-
-                }
-
-                if new_height != original_height {
-
-                    zone.top = ((zone.top as f64*new_height)/original_height).round() as i32;
-
-                    zone.bottom = ((zone.bottom as f64*new_height)/original_height).round() as i32;
-
-                }
-                
-                zone.left += monitor_rect.left;
-
-                zone.top += monitor_rect.top;
-
-                zone.right += monitor_rect.left;
-
-                zone.bottom += monitor_rect.top;
-
-            }
-
-        }
-
-        ret.monitor_rect = monitor_rect;
-
-        ret.update();
-
-        return Some(ret);
-        
     }
     
     pub fn delete_zones(&mut self, i: usize) {
@@ -820,3 +742,183 @@ impl Layout {
 
 }
 
+#[derive(Clone, Debug)]
+pub struct LayoutGroup {
+    layouts: Vec<Layout>,
+    default_idx: usize,
+}
+
+impl LayoutGroup {
+
+    pub unsafe fn new(hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Self {
+
+        LayoutGroup {
+            layouts: vec![Layout::new(hmonitor)],
+            default_idx: 0,
+        }
+
+    }
+
+    pub fn default_idx(&self) -> usize {
+
+        self.default_idx
+
+    }
+
+    pub fn set_default_idx(&mut self, i: usize) {
+
+        self.default_idx = i;
+
+    }
+
+    pub fn get_layouts(&self) -> &Vec<Layout> {
+
+        &self.layouts
+
+    }
+
+    pub fn get_layouts_mut(&mut self) -> &mut Vec<Layout> {
+
+        &mut self.layouts
+
+    }
+
+    pub fn layouts_len(&self) -> usize {
+
+        self.layouts.len()
+
+    }
+
+    pub fn update_all(&mut self) {
+
+        for layout in self.layouts.iter_mut() {
+
+            layout.update();
+
+        }
+
+    }
+
+    pub unsafe fn convert_for_monitor(layout_group: &LayoutGroup, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Option<LayoutGroup> {
+
+        let mut monitor_info = windows::Win32::Graphics::Gdi::MONITORINFO::default();
+
+        monitor_info.cbSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32;
+
+        windows::Win32::Graphics::Gdi::GetMonitorInfoA(hmonitor, &mut monitor_info);
+        
+        let monitor_rect = monitor_info.rcWork;
+
+        let layout = &layout_group.layouts[layout_group.default_idx];
+
+        if monitor_rect == layout.monitor_rect {
+
+            return None;
+
+        }
+
+        println!("{:?}", monitor_rect);
+
+        let original_width = (layout.monitor_rect.right - layout.monitor_rect.left) as f64;
+
+        let original_height = (layout.monitor_rect.bottom - layout.monitor_rect.top) as f64 ;
+
+        let new_width = (monitor_rect.right - monitor_rect.left) as f64;
+        
+        let new_height = (monitor_rect.bottom - monitor_rect.top) as f64;
+
+        let mut ret = layout_group.clone();
+
+        for l in ret.layouts.iter_mut() {
+
+            for zones in l.zones.iter_mut() {
+
+                for zone in zones {
+
+                    zone.left -= layout.monitor_rect.left;
+
+                    zone.top -= layout.monitor_rect.top;
+
+                    zone.right -= layout.monitor_rect.left;
+
+                    zone.bottom -= layout.monitor_rect.top;
+
+                    if new_width != original_width {
+
+                        zone.left = ((zone.left as f64*new_width)/original_width).round() as i32;
+                        
+                        zone.right = ((zone.right as f64*new_width)/original_width).round() as i32;
+
+                    }
+
+                    if new_height != original_height {
+
+                        zone.top = ((zone.top as f64*new_height)/original_height).round() as i32;
+
+                        zone.bottom = ((zone.bottom as f64*new_height)/original_height).round() as i32;
+
+                    }
+                    
+                    zone.left += monitor_rect.left;
+
+                    zone.top += monitor_rect.top;
+
+                    zone.right += monitor_rect.left;
+
+                    zone.bottom += monitor_rect.top;
+
+                }
+
+            }
+
+            l.monitor_rect = monitor_rect;
+
+        }
+
+        return Some(ret);
+        
+    }
+    
+    pub fn new_variant(&mut self) {
+        
+        self.layouts.push(self.layouts[self.default_idx].clone());
+
+    }
+
+    pub fn move_variant(&mut self, from: usize, to: usize) {
+
+        let layout = self.layouts.remove(from);
+
+        self.layouts.insert(to, layout);
+
+        if from == self.default_idx {
+
+            self.default_idx = to;
+
+        }
+
+        else if
+            
+            from < self.default_idx &&
+            to > self.default_idx
+        
+        {
+
+            self.default_idx -= 1;
+
+        }
+
+        else if
+
+            from > self.default_idx &&
+            to <= self.default_idx
+
+        {
+
+            self.default_idx += 1;
+
+        }
+
+    }
+
+}

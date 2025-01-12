@@ -16,16 +16,18 @@ pub mod messages {
 
 #[derive(Clone)]
 pub struct Workspace {
-    layout: std::sync::Arc<std::sync::RwLock<crate::layout::Layout>>,
+    layout_idx: usize,
+    variant_idx: usize,
     pub managed_window_handles: Vec<windows::Win32::Foundation::HWND>,
 }
 
 impl Workspace {
 
-    unsafe fn new(hwnd: windows::Win32::Foundation::HWND, layout: std::sync::Arc<std::sync::RwLock<crate::layout::Layout>>) -> Self {
+    unsafe fn new(hwnd: windows::Win32::Foundation::HWND, layout_idx: usize, variant_idx: usize) -> Self {
 
         Workspace {
-            layout,
+            layout_idx,
+            variant_idx,
             managed_window_handles: vec![hwnd],
         }
 
@@ -94,11 +96,11 @@ impl WindowSettings {
 pub struct WindowManager {
     virtual_desktop_manager: windows::Win32::UI::Shell::IVirtualDesktopManager,
     event_hook: windows::Win32::UI::Accessibility::HWINEVENTHOOK,
-    pub hmonitor_default_layout_indices: std::collections::HashMap<*mut core::ffi::c_void, usize>,
+    hmonitor_default_layout_indices: std::collections::HashMap<*mut core::ffi::c_void, usize>,
     hwnd_locations: std::collections::HashMap<*mut core::ffi::c_void, (windows::core::GUID, windows::Win32::Graphics::Gdi::HMONITOR, bool, usize)>, 
-    pub workspaces: std::collections::HashMap<(windows::core::GUID, *mut core::ffi::c_void), Workspace>,
+    workspaces: std::collections::HashMap<(windows::core::GUID, *mut core::ffi::c_void), Workspace>,
     foreground_hwnd: Option<windows::Win32::Foundation::HWND>,
-    layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<std::sync::Arc<std::sync::RwLock<crate::layout::Layout>>>>,
+    layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<crate::layout::LayoutGroup>>,
     window_settings: WindowSettings,
     ignored_combinations: std::collections::HashSet<(windows::core::GUID, *mut core::ffi::c_void)>,
     ignored_hwnds: std::collections::HashSet<*mut core::ffi::c_void>,
@@ -132,19 +134,21 @@ impl WindowManager {
     }
 
     // Note: it is required to call initialize_monitors() first
-    pub unsafe fn initialize_with_layout(&mut self, default_layout: crate::layout::Layout) {
+    pub unsafe fn initialize_with_layout_group(&mut self, default_layout_group: crate::layout::LayoutGroup) {
 
         for (hmonitor, layouts) in self.layouts.iter_mut() {
 
-            let layout = match crate::layout::Layout::convert_for_monitor(&default_layout, windows::Win32::Graphics::Gdi::HMONITOR(*hmonitor)) {
+            let mut layout = match crate::layout::LayoutGroup::convert_for_monitor(&default_layout_group, windows::Win32::Graphics::Gdi::HMONITOR(*hmonitor)) {
 
                 Some(val) => val,
                 
-                None => default_layout.clone(),
+                None => default_layout_group.clone(),
             
             };
 
-            layouts.push(std::sync::Arc::new(std::sync::RwLock::new(layout)));
+            layout.update_all();
+
+            layouts.push(layout);
 
         }
 
@@ -164,27 +168,29 @@ impl WindowManager {
 
     }
 
-    pub unsafe fn set_default_layout(&mut self, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, mut layout: crate::layout::Layout) {
-
-        match crate::layout::Layout::convert_for_monitor(&layout, hmonitor) {
-            
-            Some(new_layout) => layout = new_layout,
-        
-            None => (),
-        
-        }
-
-        let layout_vec = self.layouts.get_mut(&hmonitor.0).unwrap();
-        
-        layout_vec.push(std::sync::Arc::new(std::sync::RwLock::new(layout)));
-
-        *self.hmonitor_default_layout_indices.get_mut(&hmonitor.0).unwrap() = layout_vec.len() - 1;
-
-    }
-
     pub fn set_default_layout_idx(&mut self, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, idx: usize) {
 
         *self.hmonitor_default_layout_indices.get_mut(&hmonitor.0).unwrap() = idx;
+
+    }
+
+    pub unsafe fn add_layout_group(&mut self, layout_group: crate::layout::LayoutGroup) {
+        
+        for (hmonitor, layouts) in self.layouts.iter_mut() {
+
+            let mut layout = match crate::layout::LayoutGroup::convert_for_monitor(&layout_group, windows::Win32::Graphics::Gdi::HMONITOR(*hmonitor)) {
+                
+                Some(val) => val,
+            
+                None => layout_group.clone(),
+            
+            };
+
+            layout.update_all();
+
+            layouts.push(layout);
+
+        }
 
     }
 
@@ -236,7 +242,9 @@ impl WindowManager {
                     
                     None => {
 
-                        self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, self.layouts.get(&monitor_id.0).unwrap()[*self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap()].clone()));
+                        let layout_idx = self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
+
+                        self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
                         
                     },
                 
@@ -311,9 +319,11 @@ impl WindowManager {
                         }
 
                         else {
-                        
-                            self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, self.layouts.get(&monitor_id.0).unwrap()[*self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap()].clone()));
 
+                            let layout_idx = self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
+
+                            self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                        
                             self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, false, 0));
 
                             increment_after = Some(0);
@@ -507,7 +517,9 @@ impl WindowManager {
 
                 None => {
 
-                    self.workspaces.insert((new_window_desktop_id, monitor_id.0), Workspace::new(hwnd, self.layouts.get(&monitor_id.0).unwrap()[*self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap()].clone()));
+                    let layout_idx = self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
+
+                    self.workspaces.insert((new_window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
 
                     new_idx = 0;
 
@@ -677,7 +689,9 @@ impl WindowManager {
 
                     self.workspaces.get_mut(&(window_desktop_id, original_monitor_id.0)).unwrap().managed_window_handles.remove(idx);
 
-                    self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(hwnd, self.layouts.get(&new_monitor_id.0).unwrap()[*self.hmonitor_default_layout_indices.get(&new_monitor_id.0).unwrap()].clone()));
+                    let layout_idx = self.hmonitor_default_layout_indices.get(&new_monitor_id.0).unwrap();
+
+                    self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[*layout_idx].default_idx()));
 
                     location.1 = new_monitor_id;
 
@@ -711,54 +725,64 @@ impl WindowManager {
 
         {
 
-            let layout_read_lock = workspace.layout.read().unwrap();
+        let positions =
 
-            let positions = (*layout_read_lock).get(workspace.managed_window_handles.len() - 1);
+            if changed_monitors {
 
-            if !changed_monitors {
+                self.layouts.get(&new_monitor_id.0).unwrap()[workspace.layout_idx].get_layouts()[workspace.variant_idx].get(workspace.managed_window_handles.len() - 1)
 
-                let position = &positions[idx];
+            }
+            
+            else {
 
-                if 
-                    moved_to.left == position.x &&
-                    moved_to.top == position.y &&
-                    moved_to.right - moved_to.left == position.cx &&
-                    moved_to.bottom - moved_to.top == position.cy
-                {
-                    
-                    return;
+                self.layouts.get(&original_monitor_id.0).unwrap()[workspace.layout_idx].get_layouts()[workspace.variant_idx].get(workspace.managed_window_handles.len() - 1)
 
-                }
+            };
+
+        if !changed_monitors {
+
+            let position = &positions[idx];
+
+            if 
+                moved_to.left == position.x &&
+                moved_to.top == position.y &&
+                moved_to.right - moved_to.left == position.cx &&
+                moved_to.bottom - moved_to.top == position.cy
+            {
+                
+                return;
 
             }
 
-            for (i, p) in positions.iter().enumerate() {
+        }
 
-                let left = std::cmp::max(moved_to.left, p.x);
+        for (i, p) in positions.iter().enumerate() {
 
-                let top = std::cmp::max(moved_to.top, p.y);
+            let left = std::cmp::max(moved_to.left, p.x);
 
-                let right = std::cmp::min(moved_to.right, p.x + p.cx);
-                
-                let bottom = std::cmp::min(moved_to.bottom, p.y + p.cy);
+            let top = std::cmp::max(moved_to.top, p.y);
 
-                let area = (right - left)*(bottom - top);
+            let right = std::cmp::min(moved_to.right, p.x + p.cx);
+            
+            let bottom = std::cmp::min(moved_to.bottom, p.y + p.cy);
 
-                if area == moved_to_area {
+            let area = (right - left)*(bottom - top);
 
-                    max_overlap_at = (i, area);
+            if area == moved_to_area {
 
-                    break;
-                
-                }
+                max_overlap_at = (i, area);
 
-                else if area > max_overlap_at.1 {
+                break;
+            
+            }
 
-                    max_overlap_at = (i, area);
+            else if area > max_overlap_at.1 {
 
-                }
+                max_overlap_at = (i, area);
 
             }
+
+        }
         
         }
 
@@ -786,6 +810,395 @@ impl WindowManager {
 
     }
 
+    pub unsafe fn focus_previous(&self) {
+
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        let idx = location.3;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) if val.managed_window_handles.len() > 1 => val,
+
+            _ => return,
+        
+        };
+
+        let to = 
+            
+            if idx == 0 {
+
+                workspace.managed_window_handles.len() - 1
+
+            }
+
+            else {
+
+                idx - 1
+
+            };
+
+        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[to]);
+
+    }
+
+    pub unsafe fn focus_next(&self) {
+
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        let idx = location.3;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) if val.managed_window_handles.len() > 1 => val,
+
+            _ => return,
+        
+        };
+
+        let to = 
+
+            if idx == workspace.managed_window_handles.len() - 1 {
+
+                0
+
+            }
+
+            else {
+
+                idx + 1
+
+            };
+
+        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[to]);
+
+    }
+
+    pub unsafe fn swap_previous(&mut self) {
+
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        let idx = location.3;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) if val.managed_window_handles.len() > 1 => val,
+
+            _ => return,
+        
+        };
+
+        let swap_with =
+
+            if idx == 0 {
+
+                workspace.managed_window_handles.len() - 1
+
+            }
+
+            else {
+
+                idx - 1
+
+            };
+
+        self.swap_windows(window_desktop_id, monitor_id, idx, swap_with);
+
+        self.update_workspace(window_desktop_id, monitor_id);
+
+    }
+
+    pub unsafe fn swap_next(&mut self) {
+
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        let idx = location.3;
+
+        let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) if val.managed_window_handles.len() > 1 => val,
+
+            _ => return,
+        
+        };
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let swap_with = 
+
+            if idx == workspace.managed_window_handles.len() - 1 {
+
+                0
+
+            }
+
+            else {
+
+                idx + 1
+
+            };
+
+        self.swap_windows(window_desktop_id, monitor_id, idx, swap_with);
+
+        self.update_workspace(window_desktop_id, monitor_id);
+
+    }
+
+    pub unsafe fn variant_previous(&mut self) {
+        
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let workspace = match self.workspaces.get_mut(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) if val.variant_idx != 0 => val,
+
+            _ => return,
+        
+        };
+
+        if self.layouts.get(&monitor_id.0).unwrap()[workspace.layout_idx].layouts_len() == 1 {
+
+            return;
+
+        }
+
+        workspace.variant_idx -= 1;
+        
+        self.update_workspace(window_desktop_id, monitor_id);
+
+    }
+
+    pub unsafe fn variant_next(&mut self) {
+        
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let workspace = match self.workspaces.get_mut(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) => val,
+
+            _ => return,
+        
+        };
+
+        let layouts_len = self.layouts.get(&monitor_id.0).unwrap()[workspace.layout_idx].layouts_len();
+
+        if 
+            layouts_len == 1 ||
+            workspace.variant_idx == layouts_len - 1
+        {
+
+            return;
+
+        }
+
+        workspace.variant_idx += 1;
+
+        self.update_workspace(window_desktop_id, monitor_id);
+
+    }
+
+    pub unsafe fn layout_previous(&mut self) {
+        
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let workspace = match self.workspaces.get_mut(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) => val,
+
+            _ => return,
+        
+        };
+
+        let layouts = self.layouts.get(&monitor_id.0).unwrap();
+        
+        if layouts.len() == 1 {
+
+            return;
+
+        }
+
+        if workspace.layout_idx == 0 {
+
+            workspace.layout_idx = layouts.len() - 1;
+
+        }
+
+        else {
+
+            workspace.layout_idx -= 1;
+        
+        }
+
+        workspace.variant_idx = layouts[workspace.layout_idx].default_idx();
+        
+        self.update_workspace(window_desktop_id, monitor_id);
+
+    }
+
+    pub unsafe fn layout_next(&mut self) {
+        
+        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
+
+                return;
+
+        }
+
+        let workspace = match self.workspaces.get_mut(&(window_desktop_id, monitor_id.0)) {
+        
+            Some(val) => val,
+
+            _ => return,
+        
+        };
+        
+        let layouts = self.layouts.get(&monitor_id.0).unwrap();
+
+        if layouts.len() == 1 {
+
+            return;
+
+        }
+
+        if workspace.layout_idx == layouts.len() - 1 {
+
+            workspace.layout_idx = 0;
+
+        }
+
+        else {
+
+            workspace.layout_idx += 1;
+        
+        }
+        
+        workspace.variant_idx = layouts[workspace.layout_idx].default_idx();
+        
+        self.update_workspace(window_desktop_id, monitor_id);
+
+    }
+
     unsafe fn update_workspace(&mut self, guid: windows::core::GUID, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) {
 
         if self.ignored_combinations.contains(&(guid, hmonitor.0)) {
@@ -807,58 +1220,49 @@ impl WindowManager {
             return;
 
         }
-        
 
-        let mut len = (*workspace.layout.read().unwrap()).positions_len();
+        let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx].get_layouts_mut()[workspace.variant_idx];
 
-        while len < workspace.managed_window_handles.len() {
+        while layout.positions_len() < workspace.managed_window_handles.len() {
  
-            (*workspace.layout.write().unwrap()).extend();
-
-            len = (*workspace.layout.read().unwrap()).positions_len();
+            layout.extend();
 
         }
 
         let mut error_indices: Option<Vec<usize>> = None;
 
-        {
+        let positions = layout.get(workspace.managed_window_handles.len() - 1);
 
-            let layout_read_lock = workspace.layout.try_read().unwrap();
+        for (i, hwnd) in workspace.managed_window_handles.iter().enumerate() {
 
-            let positions = (*layout_read_lock).get(workspace.managed_window_handles.len() - 1);
+            match windows::Win32::UI::WindowsAndMessaging::SetWindowPos(*hwnd, None, positions[i].x, positions[i].y, positions[i].cx, positions[i].cy, windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER) {
 
-            for (i, hwnd) in workspace.managed_window_handles.iter().enumerate() {
+                Err(_) if windows::Win32::Foundation::GetLastError().0 == 5 => {
 
-                match windows::Win32::UI::WindowsAndMessaging::SetWindowPos(*hwnd, None, positions[i].x, positions[i].y, positions[i].cx, positions[i].cy, windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER) {
+                    match &mut error_indices {
 
-                    Err(_) if windows::Win32::Foundation::GetLastError().0 == 5 => {
+                        Some(v) => v.push(i),
+                        
+                        None => {
 
-                        match &mut error_indices {
+                            error_indices = Some(vec![i]);
 
-                            Some(v) => v.push(i),
-                            
-                            None => {
+                        },
 
-                                error_indices = Some(vec![i]);
+                    }
 
-                            },
+                    self.hwnd_locations.remove(&hwnd.0);
 
-                        }
+                    self.ignored_hwnds.insert(hwnd.0);
 
-                        self.hwnd_locations.remove(&hwnd.0);
+                },
 
-                        self.ignored_hwnds.insert(hwnd.0);
-
-                    },
-
-                    _ => continue,
-
-                }
+                _ => continue,
 
             }
-        
-        }
 
+        }
+        
         if let Some(v) = error_indices {
 
             for i in v {
@@ -1123,8 +1527,9 @@ impl WindowManager {
 
                 else {
 
+                    let layout_idx = wm.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
 
-                    wm.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, wm.layouts.get(&monitor_id.0).unwrap()[*wm.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap()].clone()));
+                    wm.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, wm.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
 
                     for (guid, hmonitor, _, i) in wm.hwnd_locations.values_mut() {
 
