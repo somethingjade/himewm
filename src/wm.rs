@@ -36,17 +36,19 @@ impl Workspace {
 }
 
 #[derive(Debug)]
-pub struct WindowSettings {
+pub struct Settings {
+    padding: i32,
     disable_rounding: bool,
     disable_unfocused_border: bool,
     focused_border_colour: windows::Win32::Foundation::COLORREF
 }
 
-impl Default for WindowSettings {
+impl Default for Settings {
 
     fn default() -> Self {
     
-        WindowSettings { 
+        Settings {
+            padding: 0,
             disable_rounding: false,
             disable_unfocused_border: false,
             focused_border_colour: windows::Win32::Foundation::COLORREF(0x00FFFFFF),
@@ -55,7 +57,25 @@ impl Default for WindowSettings {
     }
 }
 
-impl WindowSettings {
+impl Settings {
+
+    pub fn get_padding(&self) -> i32 {
+
+        self.padding
+
+    }
+
+    pub fn set_padding(&mut self, val: i32) {
+
+        self.padding = val;
+
+    }
+
+    pub fn get_disable_rounding(&self) -> bool {
+
+        self.disable_rounding
+
+    }
 
     pub fn set_disable_rounding(&mut self, val: bool) {
 
@@ -63,15 +83,27 @@ impl WindowSettings {
 
     }
 
+    pub fn get_disable_unfocused_border(&self) -> bool {
+
+        self.disable_unfocused_border
+
+    }
+
     pub fn set_disable_unfocused_border(&mut self, val: bool) {
-        
+
         self.disable_unfocused_border = val;
 
     }
 
-    pub fn set_focused_border_colour(&mut self, val: windows::Win32::Foundation::COLORREF) {
-        
-        self.focused_border_colour = val;
+    pub fn get_focused_border_colour(&self) -> u32 {
+
+        self.focused_border_colour.0
+
+    }
+
+    pub fn set_focused_border_colour(&mut self, val: u32) {
+
+        self.focused_border_colour = windows::Win32::Foundation::COLORREF(val);
 
     }
 
@@ -101,7 +133,7 @@ pub struct WindowManager {
     workspaces: std::collections::HashMap<(windows::core::GUID, *mut core::ffi::c_void), Workspace>,
     foreground_hwnd: Option<windows::Win32::Foundation::HWND>,
     layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<crate::layout::LayoutGroup>>,
-    window_settings: WindowSettings,
+    settings: Settings,
     ignored_combinations: std::collections::HashSet<(windows::core::GUID, *mut core::ffi::c_void)>,
     ignored_hwnds: std::collections::HashSet<*mut core::ffi::c_void>,
 }
@@ -120,7 +152,7 @@ impl WindowManager {
             workspaces: std::collections::HashMap::new(),
             foreground_hwnd: None,
             layouts: std::collections::HashMap::new(),
-            window_settings: WindowSettings::default(),
+            settings: Settings::default(),
             ignored_combinations: std::collections::HashSet::new(),
             ignored_hwnds: std::collections::HashSet::new(),
         }
@@ -146,7 +178,7 @@ impl WindowManager {
             
             };
 
-            layout.update_all();
+            layout.update_all(self.settings.padding);
 
             layouts.push(layout);
 
@@ -186,7 +218,7 @@ impl WindowManager {
             
             };
 
-            layout.update_all();
+            layout.update_all(self.settings.padding);
 
             layouts.push(layout);
 
@@ -194,15 +226,15 @@ impl WindowManager {
 
     }
 
-    pub fn get_window_settings(&self) -> &WindowSettings {
+    pub fn get_settings(&self) -> &Settings {
 
-        &self.window_settings
+        &self.settings
 
     }
     
-    pub fn get_window_settings_mut(&mut self) -> &mut WindowSettings {
+    pub fn get_settings_mut(&mut self) -> &mut Settings {
 
-        &mut self.window_settings
+        &mut self.settings
 
     }
 
@@ -812,7 +844,15 @@ impl WindowManager {
 
     pub unsafe fn focus_previous(&self) {
 
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
             Some(val) if !val.2 => val,
         
@@ -860,8 +900,16 @@ impl WindowManager {
 
     pub unsafe fn focus_next(&self) {
 
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
             
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
+
             Some(val) if !val.2 => val,
         
             _ => return,
@@ -908,7 +956,15 @@ impl WindowManager {
 
     pub unsafe fn swap_previous(&mut self) {
 
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
             Some(val) if !val.2 => val,
         
@@ -958,7 +1014,15 @@ impl WindowManager {
 
     pub unsafe fn swap_next(&mut self) {
 
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
             Some(val) if !val.2 => val,
         
@@ -1008,7 +1072,15 @@ impl WindowManager {
 
     pub unsafe fn variant_previous(&mut self) {
         
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
             Some(val) if !val.2 => val,
         
@@ -1048,7 +1120,15 @@ impl WindowManager {
 
     pub unsafe fn variant_next(&mut self) {
         
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
             Some(val) if !val.2 => val,
         
@@ -1093,7 +1173,15 @@ impl WindowManager {
 
     pub unsafe fn layout_previous(&mut self) {
         
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
             Some(val) if !val.2 => val,
         
@@ -1147,8 +1235,16 @@ impl WindowManager {
 
     pub unsafe fn layout_next(&mut self) {
         
-        let location = match self.hwnd_locations.get(&windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0) {
+        let foreground_hwnd = match self.foreground_hwnd {
             
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
+
             Some(val) if !val.2 => val,
         
             _ => return,
@@ -1226,6 +1322,8 @@ impl WindowManager {
         while layout.positions_len() < workspace.managed_window_handles.len() {
  
             layout.extend();
+
+            layout.update(self.settings.padding);
 
         }
 
@@ -1350,13 +1448,13 @@ impl WindowManager {
 
     unsafe fn set_border_to_unfocused(&self, hwnd: windows::Win32::Foundation::HWND) {
 
-        let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR, &self.window_settings.get_unfocused_border_colour() as *const windows::Win32::Foundation::COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.window_settings.get_unfocused_border_colour()) as u32);
+        let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR, &self.settings.get_unfocused_border_colour() as *const windows::Win32::Foundation::COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.settings.get_unfocused_border_colour()) as u32);
 
     }
 
     unsafe fn set_border_to_focused(&self, hwnd: windows::Win32::Foundation::HWND) {
 
-        let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR, &self.window_settings.focused_border_colour as *const windows::Win32::Foundation::COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.window_settings.focused_border_colour) as u32);
+        let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR, &self.settings.focused_border_colour as *const windows::Win32::Foundation::COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.settings.focused_border_colour) as u32);
 
     }
 
@@ -1364,7 +1462,7 @@ impl WindowManager {
     
         let corner_preference = 
 
-            if self.window_settings.disable_rounding {
+            if self.settings.disable_rounding {
 
                 windows::Win32::Graphics::Dwm::DWMWCP_DONOTROUND
 

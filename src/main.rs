@@ -11,13 +11,21 @@ mod hotkey_identifiers {
 
     pub const SWAP_NEXT: usize = 3;
 
-    pub const VARIANT_PREVIOUS: usize = 6;
+    pub const VARIANT_PREVIOUS: usize = 4;
 
-    pub const VARIANT_NEXT: usize = 7;
+    pub const VARIANT_NEXT: usize = 5;
 
-    pub const LAYOUT_PREVIOUS: usize = 4;
+    pub const LAYOUT_PREVIOUS: usize = 6;
 
-    pub const LAYOUT_NEXT: usize = 5;
+    pub const LAYOUT_NEXT: usize = 7;
+
+    pub const FOCUS_PREVIOUS_MONITOR: usize = 8;
+
+    pub const FOCUS_NEXT_MONITOR: usize = 9;
+
+    pub const SWAP_PREVIOUS_MONITOR: usize = 10;
+
+    pub const SWAP_NEXT_MONITOR: usize = 11;
 
 }
 
@@ -38,6 +46,14 @@ unsafe fn register_hotkeys() {
     let _layout_previous = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::LAYOUT_PREVIOUS as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT, 0x48);
 
     let _layout_next = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::LAYOUT_NEXT as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT, 0x4C);
+
+    let _focus_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x44);
+
+    let _focus_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x46);
+
+    let _swap_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x53);
+
+    let _swap_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x47);
 
 }
 
@@ -189,13 +205,14 @@ mod test {
     
     pub unsafe fn test(wm: &mut crate::wm::WindowManager) {
 
+            
+
             let mut layout_group = super::layout::LayoutGroup::new(windows::Win32::Graphics::Gdi::MonitorFromWindow(None, windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY));
 
             let mut idx = layout_group.default_idx();
 
             let layout = &mut layout_group.get_layouts_mut()[idx];
 
-            layout.set_padding(4);
             let end_tiling_behaviour = super::layout::EndTilingBehaviour::default_repeating();
 
 
@@ -256,7 +273,6 @@ mod test {
 
             let l2 = &mut second_layout_group.get_layouts_mut()[idx];
 
-            l2.set_padding(4);
 
             l2.set_end_tiling_direction(super::layout::Direction::Vertical);
 
@@ -274,8 +290,9 @@ mod test {
 
             l2.split(3, 0, super::layout::SplitDirection::Horizontal(600));
 
-            wm.get_window_settings_mut().set_disable_rounding(true);
-            wm.get_window_settings_mut().set_disable_unfocused_border(true);
+            wm.get_settings_mut().set_disable_rounding(true);
+            wm.get_settings_mut().set_disable_unfocused_border(true);
+            wm.get_settings_mut().set_padding(6);
 
             wm.initialize_monitors();
 

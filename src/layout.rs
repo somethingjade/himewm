@@ -120,7 +120,6 @@ pub struct Position {
 #[derive(Clone, Debug)]
 pub struct Layout {
     monitor_rect: windows::Win32::Foundation::RECT,
-    padding: i32,
     pub zones: Vec<Vec<Zone>>,
     manual_zones_until: usize,
     pub end_tiling_behaviour: EndTilingBehaviour,
@@ -139,7 +138,6 @@ impl Layout {
 
         let mut ret = Layout {
             monitor_rect: monitor_info.rcWork,
-            padding: 0,
             zones: Vec::new(),
             manual_zones_until: 1,
             end_tiling_behaviour: EndTilingBehaviour::default_directional(),
@@ -194,13 +192,7 @@ impl Layout {
 
     }
 
-    pub fn set_padding(&mut self, val: i32) {
-    
-        self.padding = val;
-
-    }
-
-    pub fn update(&mut self) {
+    pub fn update(&mut self, padding: i32) {
 
         match &mut self.end_tiling_behaviour {
             
@@ -229,37 +221,37 @@ impl Layout {
             for zone in zones {
 
                 let mut position = Position {
-                    x: zone.left - 7 + self.padding ,
-                    y: zone.top + self.padding,
-                    cx: zone.w() + 14 - 2*self.padding,
-                    cy: zone.h() + 7 - 2*self.padding,
+                    x: zone.left - 7 + padding ,
+                    y: zone.top + padding,
+                    cx: zone.w() + 14 - 2*padding,
+                    cy: zone.h() + 7 - 2*padding,
                 };
 
                 if zone.left == self.monitor_rect.left {
 
-                    position.x += self.padding;
+                    position.x += padding;
 
-                    position.cx -= self.padding;
+                    position.cx -= padding;
                 
                 }
 
                 if zone.top == self.monitor_rect.top {
                 
-                    position.y += self.padding;
+                    position.y += padding;
                     
-                    position.cy -= self.padding;
+                    position.cy -= padding;
                 
                 }
 
                 if zone.right == self.monitor_rect.right {
                 
-                    position.cx -= self.padding;
+                    position.cx -= padding;
                 
                 }
 
                 if zone.bottom == self.monitor_rect.bottom {
                 
-                    position.cy -= self.padding;
+                    position.cy -= padding;
                 
                 }
 
@@ -431,7 +423,7 @@ impl Layout {
 
     }
 
-    pub fn split(&mut self, mut i: usize, j: usize, direction: SplitDirection) {
+    pub fn split(&mut self, i: usize, j: usize, direction: SplitDirection) {
 
         let zone = &mut self.zones[i][j];
 
@@ -736,8 +728,6 @@ impl Layout {
         
         }
 
-        self.update();
-
     }
 
 }
@@ -789,11 +779,11 @@ impl LayoutGroup {
 
     }
 
-    pub fn update_all(&mut self) {
+    pub fn update_all(&mut self, padding: i32) {
 
         for layout in self.layouts.iter_mut() {
 
-            layout.update();
+            layout.update(padding);
 
         }
 
