@@ -18,7 +18,7 @@ pub mod messages {
 pub struct Workspace {
     layout_idx: usize,
     variant_idx: usize,
-    pub managed_window_handles: Vec<windows::Win32::Foundation::HWND>,
+    managed_window_handles: Vec<windows::Win32::Foundation::HWND>,
 }
 
 impl Workspace {
@@ -142,7 +142,7 @@ impl WindowManager {
 
     pub unsafe fn new() -> Self {
 
-        windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_MULTITHREADED);
+        let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_MULTITHREADED);
 
         WindowManager {
             virtual_desktop_manager: windows::Win32::System::Com::CoCreateInstance(&windows::Win32::UI::Shell::VirtualDesktopManager, None, windows::Win32::System::Com::CLSCTX_INPROC_SERVER).unwrap(),

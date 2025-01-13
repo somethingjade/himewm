@@ -186,22 +186,6 @@ fn main() {
 }
 
 mod test {
-
-    fn display(layout: &super::layout::Layout) {
-
-        for zones in &layout.zones {
-            
-            for zone in zones {
-
-                println!("{zone:?}");
-
-            }
-
-            println!();
-
-        }
-
-    }
     
     pub unsafe fn test(wm: &mut crate::wm::WindowManager) {
 
@@ -234,7 +218,6 @@ mod test {
             //layout.set_end_tiling_direction(super::layout::Direction::Vertical);
             
             
-            display(&layout);
 
             layout_group.new_variant();
 

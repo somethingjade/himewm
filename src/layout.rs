@@ -120,9 +120,9 @@ pub struct Position {
 #[derive(Clone, Debug)]
 pub struct Layout {
     monitor_rect: windows::Win32::Foundation::RECT,
-    pub zones: Vec<Vec<Zone>>,
+    zones: Vec<Vec<Zone>>,
     manual_zones_until: usize,
-    pub end_tiling_behaviour: EndTilingBehaviour,
+    end_tiling_behaviour: EndTilingBehaviour,
     positions: Vec<Vec<Position>>,
 }
 
@@ -602,8 +602,6 @@ impl Layout {
 
     pub fn extend(&mut self) {
 
-        println!("extending");
-
         let end_zone_idx = self.get_end_zone_idx();
 
         let end_tiling_behaviour = self.end_tiling_behaviour.clone();
@@ -806,8 +804,6 @@ impl LayoutGroup {
             return None;
 
         }
-
-        println!("{:?}", monitor_rect);
 
         let original_width = (layout.monitor_rect.right - layout.monitor_rect.left) as f64;
 
