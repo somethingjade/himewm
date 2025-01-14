@@ -27,6 +27,14 @@ mod hotkey_identifiers {
 
     pub const SWAP_NEXT_MONITOR: usize = 11;
 
+    pub const GRAB_WINDOW: usize = 12;
+
+    pub const RELEASE_WINDOW: usize = 13;
+
+    pub const REFRESH_WORKSPACE: usize = 14;
+
+    pub const DISABLE_WORKSPACE: usize = 15;
+
 }
 
 unsafe fn register_hotkeys() {
@@ -47,13 +55,21 @@ unsafe fn register_hotkeys() {
 
     let _layout_next = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::LAYOUT_NEXT as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT, 0x4C);
 
-    let _focus_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x44);
+    let _focus_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x55);
 
-    let _focus_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x46);
+    let _focus_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x49);
 
-    let _swap_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x53);
+    let _swap_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x59);
 
-    let _swap_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x47);
+    let _swap_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x4F);
+    
+    let _grab_window = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::GRAB_WINDOW as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x55);
+
+    let _release_window = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::RELEASE_WINDOW as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x49);
+
+    let _refresh_workspace = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::REFRESH_WORKSPACE as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x59);
+
+    let _disable_workspace = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::DISABLE_WORKSPACE as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x4F);
 
 }
 
@@ -149,6 +165,52 @@ unsafe fn handle_message(msg: windows::Win32::UI::WindowsAndMessaging::MSG, wm: 
 
                 },
 
+                hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
+
+                    wm.focus_previous_monitor();
+
+                },
+
+                hotkey_identifiers::FOCUS_NEXT_MONITOR => {
+
+                    wm.focus_next_monitor();
+
+                },
+
+                hotkey_identifiers::SWAP_PREVIOUS_MONITOR => {
+
+                    wm.swap_previous_monitor();
+
+                },
+
+                hotkey_identifiers::SWAP_NEXT_MONITOR => {
+
+                    wm.swap_next_monitor();
+
+                },
+
+                hotkey_identifiers::GRAB_WINDOW => {
+
+                    wm.grab_window();
+
+                },
+
+                hotkey_identifiers::RELEASE_WINDOW => {
+
+                    wm.release_window();
+
+                },
+
+                hotkey_identifiers::REFRESH_WORKSPACE => {
+
+
+                },
+
+                hotkey_identifiers::DISABLE_WORKSPACE => {
+
+
+                },
+
                 _ => (),
 
             }
@@ -191,7 +253,11 @@ mod test {
 
             
 
-            let mut layout_group = super::layout::LayoutGroup::new(windows::Win32::Graphics::Gdi::MonitorFromWindow(None, windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY));
+            wm.initialize_monitors();
+
+            let primary_hmonitor = wm.get_monitor_vec()[0];
+
+            let mut layout_group = super::layout::LayoutGroup::new(primary_hmonitor);
 
             let mut idx = layout_group.default_idx();
 
@@ -250,7 +316,7 @@ mod test {
             layout_group.move_variant(idx, 0);
 
 
-            let mut second_layout_group = super::layout::LayoutGroup::new(windows::Win32::Graphics::Gdi::MonitorFromWindow(None, windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY));
+            let mut second_layout_group = super::layout::LayoutGroup::new(primary_hmonitor);
 
             idx = second_layout_group.default_idx();
 
@@ -276,8 +342,6 @@ mod test {
             wm.get_settings_mut().set_disable_rounding(true);
             wm.get_settings_mut().set_disable_unfocused_border(true);
             wm.get_settings_mut().set_padding(6);
-
-            wm.initialize_monitors();
 
             wm.initialize_with_layout_group(layout_group);
             wm.add_layout_group(second_layout_group);

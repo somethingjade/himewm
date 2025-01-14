@@ -134,6 +134,8 @@ pub struct WindowManager {
     foreground_hwnd: Option<windows::Win32::Foundation::HWND>,
     layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<crate::layout::LayoutGroup>>,
     settings: Settings,
+    ordered_hmonitors: Vec<windows::Win32::Graphics::Gdi::HMONITOR>,
+    grabbed_window: Option<windows::Win32::Foundation::HWND>,
     ignored_combinations: std::collections::HashSet<(windows::core::GUID, *mut core::ffi::c_void)>,
     ignored_hwnds: std::collections::HashSet<*mut core::ffi::c_void>,
 }
@@ -153,6 +155,8 @@ impl WindowManager {
             foreground_hwnd: None,
             layouts: std::collections::HashMap::new(),
             settings: Settings::default(),
+            ordered_hmonitors: Vec::new(),
+            grabbed_window: None,
             ignored_combinations: std::collections::HashSet::new(),
             ignored_hwnds: std::collections::HashSet::new(),
         }
@@ -238,6 +242,12 @@ impl WindowManager {
 
     }
 
+    pub fn get_monitor_vec(&self) -> &Vec<windows::Win32::Graphics::Gdi::HMONITOR> {
+        
+        &self.ordered_hmonitors
+
+    }
+
     pub unsafe fn window_created(&mut self, hwnd: windows::Win32::Foundation::HWND) {
 
         if self.ignored_hwnds.contains(&hwnd.0) {
@@ -256,7 +266,7 @@ impl WindowManager {
 
             Some((_, _, false, _)) => return,
 
-            Some((guid, hmonitor, _, idx)) if !is_maximized(hwnd) => {
+            Some((guid, hmonitor, _, idx)) if is_restored(hwnd) => {
 
                 window_desktop_id = *guid;
 
@@ -325,32 +335,27 @@ impl WindowManager {
 
                     Some(workspace) => {
 
-                        if is_maximized(hwnd) {
-
-                            self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, workspace.managed_window_handles.len()));
-
-                        }
-
-                        else {
+                        if is_restored(hwnd) {
 
                             workspace.managed_window_handles.push(hwnd);
 
                             self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, false, workspace.managed_window_handles.len() - 1));
 
                             increment_after = Some(workspace.managed_window_handles.len() - 1);
+
+                        }
+
+                        else {
+
+                            self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, workspace.managed_window_handles.len()));
+
                         }
 
                     },
                     
                     None => {
 
-                        if is_maximized(hwnd) {
-
-                            self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, 0));
-                    
-                        }
-
-                        else {
+                        if is_restored(hwnd) {
 
                             let layout_idx = self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
 
@@ -359,6 +364,12 @@ impl WindowManager {
                             self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, false, 0));
 
                             increment_after = Some(0);
+                    
+                        }
+
+                        else {
+
+                            self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, 0));
 
                         }
 
@@ -482,6 +493,18 @@ impl WindowManager {
                     *i -= 1;
 
             }
+
+        }
+
+        match self.grabbed_window {
+            
+            Some(h) if h == hwnd => {
+
+                self.grabbed_window = None;
+
+            },
+
+            _ => (),
 
         }
 
@@ -630,7 +653,7 @@ impl WindowManager {
         
         self.foreground_hwnd = Some(hwnd);
 
-        if !is_maximized(hwnd) {
+        if is_restored(hwnd) {
 
             let location = self.hwnd_locations.get(&hwnd.0).unwrap();
 
@@ -644,7 +667,7 @@ impl WindowManager {
                     *guid == window_desktop_id &&
                     *hmonitor == monitor_id &&
                     *flag &&
-                    is_maximized(windows::Win32::Foundation::HWND(*h))
+                    !windows::Win32::UI::WindowsAndMessaging::IsIconic(windows::Win32::Foundation::HWND(*h)).as_bool()
                 {
 
                         let _ = windows::Win32::UI::WindowsAndMessaging::ShowWindow(windows::Win32::Foundation::HWND(*h), windows::Win32::UI::WindowsAndMessaging::SW_MINIMIZE);
@@ -761,7 +784,17 @@ impl WindowManager {
 
             if changed_monitors {
 
-                self.layouts.get(&new_monitor_id.0).unwrap()[workspace.layout_idx].get_layouts()[workspace.variant_idx].get(workspace.managed_window_handles.len() - 1)
+                let layout = &mut self.layouts.get_mut(&new_monitor_id.0).unwrap()[workspace.layout_idx].get_layouts_mut()[workspace.variant_idx];
+
+                while layout.positions_len() < workspace.managed_window_handles.len() + 1 {
+         
+                    layout.extend();
+
+                    layout.update(self.settings.padding);
+
+                }
+
+                layout.get(workspace.managed_window_handles.len())
 
             }
             
@@ -819,7 +852,7 @@ impl WindowManager {
         }
 
         if changed_monitors {
-            
+
             self.move_windows_across_monitors(window_desktop_id, original_monitor_id, new_monitor_id, idx, max_overlap_at.0);
 
             self.update_workspace(window_desktop_id, original_monitor_id);
@@ -865,12 +898,6 @@ impl WindowManager {
         let monitor_id = location.1;
 
         let idx = location.3;
-
-        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
-
-                return;
-
-        }
 
         let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
         
@@ -921,12 +948,6 @@ impl WindowManager {
         let monitor_id = location.1;
 
         let idx = location.3;
-
-        if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
-
-                return;
-
-        }
 
         let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
         
@@ -1295,6 +1316,471 @@ impl WindowManager {
 
     }
 
+    pub unsafe fn focus_previous_monitor(&self) {
+
+        if self.ordered_hmonitors.len() <= 1 {
+
+            return;
+
+        }
+
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        let mut idx = self.ordered_hmonitors.len();
+
+        for i in 0..self.ordered_hmonitors.len() {
+
+            if self.ordered_hmonitors[i] == monitor_id {
+
+                idx = i;
+
+            }
+
+        }
+
+        if idx == self.ordered_hmonitors.len() {
+
+            return;
+
+        }
+
+        else if idx == 0 {
+
+            idx = self.ordered_hmonitors.len() - 1;
+
+        }
+
+        else {
+
+            idx -= 1;
+
+        }
+
+        let workspace = match self.workspaces.get(&(window_desktop_id, self.ordered_hmonitors[idx].0)) {
+        
+            Some(val) if val.managed_window_handles.len() != 0 => val,
+
+            _ => return,
+        
+        };
+
+        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[0]);
+
+    }
+
+    pub unsafe fn focus_next_monitor(&self) {
+
+        if self.ordered_hmonitors.len() <= 1 {
+
+            return;
+
+        }
+
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let monitor_id = location.1;
+
+        let mut idx = self.ordered_hmonitors.len();
+
+        for i in 0..self.ordered_hmonitors.len() {
+
+            if self.ordered_hmonitors[i] == monitor_id {
+
+                idx = i;
+
+            }
+
+        }
+
+        if idx == self.ordered_hmonitors.len() {
+
+            return;
+
+        }
+
+        else if idx == self.ordered_hmonitors.len() - 1 {
+
+            idx = 0;
+
+        }
+
+        else {
+
+            idx += 1;
+
+        }
+
+        let workspace = match self.workspaces.get(&(window_desktop_id, self.ordered_hmonitors[idx].0)) {
+        
+            Some(val) if val.managed_window_handles.len() != 0 => val,
+
+            _ => return,
+        
+        };
+
+        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[0]);
+
+    }
+
+    pub unsafe fn swap_previous_monitor(&mut self) {
+
+        if self.ordered_hmonitors.len() <= 1 {
+
+            return;
+
+        }
+
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let original_dpi = windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd);
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let original_monitor_id = location.1;
+
+        let original_window_idx = location.3;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, original_monitor_id.0)) {
+
+                return;
+
+        }
+
+        let mut hmonitor_idx = self.ordered_hmonitors.len();
+
+        for i in 0..self.ordered_hmonitors.len() {
+
+            if self.ordered_hmonitors[i] == original_monitor_id {
+
+                hmonitor_idx = i;
+
+            }
+
+        }
+
+        let mut new_monitor_id = windows::Win32::Graphics::Gdi::HMONITOR::default();
+
+        if hmonitor_idx == self.ordered_hmonitors.len() {
+
+            return;
+
+        }
+
+        else {
+
+            for i in 0..self.ordered_hmonitors.len() {
+
+                if i == self.ordered_hmonitors.len() - 1 {
+
+                    return;
+
+                }
+
+                if hmonitor_idx == 0 {
+
+                    hmonitor_idx = self.ordered_hmonitors.len() - 1;
+
+                }
+
+                else {
+
+                    hmonitor_idx -= 1;
+
+                }
+
+                new_monitor_id = self.ordered_hmonitors[hmonitor_idx];
+
+                if !self.ignored_combinations.contains(&(window_desktop_id, new_monitor_id.0)) {
+
+                    break;
+
+                }
+
+            }
+
+        }
+
+        match self.workspaces.get(&(window_desktop_id, new_monitor_id.0)) {
+        
+            Some(val) if val.managed_window_handles.len() != 0 => (),
+
+            _ => return,
+        
+        };
+
+        self.move_windows_across_monitors(window_desktop_id, original_monitor_id, new_monitor_id, original_window_idx, 0);
+
+        self.update_workspace(window_desktop_id, original_monitor_id);
+
+        self.update_workspace(window_desktop_id, new_monitor_id);
+
+        if windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd) != original_dpi {
+
+            self.update_workspace(window_desktop_id, new_monitor_id);
+
+        }
+
+    }
+
+    pub unsafe fn swap_next_monitor(&mut self) {
+
+        if self.ordered_hmonitors.len() <= 1 {
+
+            return;
+
+        }
+
+        let foreground_hwnd = match self.foreground_hwnd {
+            
+            Some(hwnd) => hwnd,
+        
+            None => return,
+        
+        };
+
+        let original_dpi = windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd);
+
+        let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
+            
+            Some(val) if !val.2 => val,
+        
+            _ => return,
+        
+        };
+
+        let window_desktop_id = location.0;
+
+        let original_monitor_id = location.1;
+
+        let original_window_idx = location.3;
+
+        if self.ignored_combinations.contains(&(window_desktop_id, original_monitor_id.0)) {
+
+                return;
+
+        }
+
+        let mut hmonitor_idx = self.ordered_hmonitors.len();
+
+        for i in 0..self.ordered_hmonitors.len() {
+
+            if self.ordered_hmonitors[i] == original_monitor_id {
+
+                hmonitor_idx = i;
+
+            }
+
+        }
+
+        let mut new_monitor_id = windows::Win32::Graphics::Gdi::HMONITOR::default();
+
+        if hmonitor_idx == self.ordered_hmonitors.len() {
+
+            return;
+
+        }
+
+        else {
+
+            for i in 0..self.ordered_hmonitors.len() {
+
+                if i == self.ordered_hmonitors.len() - 1 {
+
+                    return;
+
+                }
+
+                if hmonitor_idx == self.ordered_hmonitors.len() - 1 {
+
+                    hmonitor_idx = 0;
+
+                }
+
+                else {
+
+                    hmonitor_idx += 1;
+
+                }
+
+                new_monitor_id = self.ordered_hmonitors[hmonitor_idx];
+
+                if !self.ignored_combinations.contains(&(window_desktop_id, new_monitor_id.0)) {
+
+                    break;
+
+                }
+
+            }
+
+        }
+
+        match self.workspaces.get(&(window_desktop_id, new_monitor_id.0)) {
+        
+            Some(val) if val.managed_window_handles.len() != 0 => (),
+
+            _ => return,
+        
+        };
+
+        self.move_windows_across_monitors(window_desktop_id, original_monitor_id, new_monitor_id, original_window_idx, 0);
+
+        self.update_workspace(window_desktop_id, original_monitor_id);
+
+        self.update_workspace(window_desktop_id, new_monitor_id);
+
+        if windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd) != original_dpi {
+
+            self.update_workspace(window_desktop_id, new_monitor_id);
+
+        }
+
+    }
+
+    pub fn grab_window(&mut self) {
+        
+        self.grabbed_window = match self.foreground_hwnd {
+            
+            Some(hwnd) => {
+
+                match self.hwnd_locations.get(&hwnd.0) {
+
+                    Some(val) if !val.2 => Some(hwnd),
+
+                    _ => None,
+
+                }
+
+            },
+
+            None => None,
+
+        }
+
+    }
+    
+    pub unsafe fn release_window(&mut self) {
+
+        let grabbed_window = match self.grabbed_window {
+            
+            Some(hwnd) => hwnd,
+
+            None => return,
+
+        };
+        
+        let foreground_hwnd = match self.foreground_hwnd {
+
+            Some(hwnd) if hwnd != self.grabbed_window.unwrap() => hwnd,
+            
+            _ => return,
+        
+        };
+
+        let new_location = match self.hwnd_locations.get(&foreground_hwnd.0) {
+
+            Some(val) if !val.2 => val,
+
+            _ => return
+
+        };
+
+        let (new_window_desktop_id, new_monitor_id, _, new_idx) = new_location.clone();
+
+        if self.ignored_combinations.contains(&(new_window_desktop_id, new_monitor_id.0)) {
+
+            return;
+
+        }
+        
+        // TODO: destructure like this anything that can be destructured like this
+        let (original_window_desktop_id, original_monitor_id, _, original_idx) = self.hwnd_locations.get(&self.grabbed_window.unwrap().0).unwrap().to_owned();
+        
+        if original_window_desktop_id != new_window_desktop_id {
+
+            return;
+
+        }
+        
+        if 
+            original_monitor_id == new_monitor_id
+        {
+
+            self.swap_windows(original_window_desktop_id, original_monitor_id, original_idx, new_idx);
+
+            self.update_workspace(original_window_desktop_id, original_monitor_id);
+
+        }
+
+        else {
+
+            self.move_windows_across_monitors(original_window_desktop_id, original_monitor_id, new_monitor_id, original_idx, new_idx);
+
+            let original_dpi = windows::Win32::UI::HiDpi::GetDpiForWindow(grabbed_window);
+            
+            self.update_workspace(original_window_desktop_id, original_monitor_id);
+            
+            self.update_workspace(original_window_desktop_id, new_monitor_id);
+
+            if windows::Win32::UI::HiDpi::GetDpiForWindow(grabbed_window) != original_dpi {
+            
+                self.update_workspace(original_window_desktop_id, new_monitor_id);
+
+            }
+
+        }
+
+        self.grabbed_window = None;
+
+    }
+
     unsafe fn update_workspace(&mut self, guid: windows::core::GUID, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) {
 
         if self.ignored_combinations.contains(&(guid, hmonitor.0)) {
@@ -1416,12 +1902,11 @@ impl WindowManager {
 
         if !self.hwnd_locations.get(&hwnd.0).unwrap().2 {
 
-            for (g, hmonitor, flag, i) in self.hwnd_locations.values_mut() {
+            for (g, hmonitor, _, i) in self.hwnd_locations.values_mut() {
                 
                 if
                     *g == guid &&
                     *hmonitor == first_hmonitor &&
-                    *flag &&
                     *i > first_idx {
 
                         *i -= 1;
@@ -1439,6 +1924,8 @@ impl WindowManager {
         let last_idx = self.workspaces.get(&(guid, second_hmonitor.0)).unwrap().managed_window_handles.len() - 1;
 
         location.1 = second_hmonitor;
+
+        location.3 = last_idx;
         
         self.swap_windows(guid, second_hmonitor, second_idx, last_idx);
 
@@ -1492,30 +1979,27 @@ impl WindowManager {
 
             windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_SHOW if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CREATED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CREATED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
             },
 
             windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_DESTROY if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_DESTROYED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_DESTROYED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
             },
 
             windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE => {
 
-                if 
-                    is_maximized(hwnd) || 
-                    is_minimized(hwnd) 
-                {
+                if is_restored(hwnd) {
 
-                    windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                    windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CREATED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
                 }
 
                 else {
 
-                    windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CREATED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                    windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
                 }
 
@@ -1523,25 +2007,25 @@ impl WindowManager {
             
             windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_HIDE if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
             },
 
             windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_CLOAKED if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CLOAKED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CLOAKED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
             },
         
             windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND | windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_FOCUS => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::FOREGROUND_WINDOW_CHANGED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::FOREGROUND_WINDOW_CHANGED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
             },
 
             windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZEEND => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MOVE_FINISHED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), None).unwrap();
+                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MOVE_FINISHED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
 
             },
 
@@ -1572,9 +2056,9 @@ impl WindowManager {
         }
 
         if 
-            !is_visible(hwnd) ||
+            !windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(hwnd).as_bool() ||
             !has_sizebox(hwnd) ||
-            is_minimized(hwnd)
+            windows::Win32::UI::WindowsAndMessaging::IsIconic(hwnd).as_bool()
         {
             
             return true.into();
@@ -1585,13 +2069,7 @@ impl WindowManager {
 
             Some(workspace) => {
                 
-                if is_maximized(hwnd) {
-
-                    wm.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, workspace.managed_window_handles.len()));
-
-                }
-
-                else {
+                if is_restored(hwnd) {
 
                     workspace.managed_window_handles.push(hwnd);
 
@@ -1613,17 +2091,17 @@ impl WindowManager {
 
                 }
 
+                else {
+
+                    wm.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, workspace.managed_window_handles.len()));
+
+                }
+
             },
             
             None => {
 
-                if is_maximized(hwnd) {
-
-                    wm.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, 0));
-
-                }
-
-                else {
+                if is_restored(hwnd) {
 
                     let layout_idx = wm.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
 
@@ -1643,6 +2121,13 @@ impl WindowManager {
                     }
 
                     wm.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, false, 0));
+
+                }
+
+                else {
+
+                    wm.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, true, 0));
+
                 }
 
             },
@@ -1660,6 +2145,8 @@ impl WindowManager {
         let wm = &mut *(dw_data.0 as *mut WindowManager);
 
         wm.hmonitor_default_layout_indices.insert(hmonitor.0, 0);
+
+        wm.ordered_hmonitors.push(hmonitor);
         
         wm.layouts.insert(hmonitor.0, Vec::new());
 
@@ -1669,21 +2156,15 @@ impl WindowManager {
 
 }
 
-unsafe fn is_maximized(hwnd: windows::Win32::Foundation::HWND) -> bool {
+unsafe fn is_restored(hwnd: windows::Win32::Foundation::HWND) -> bool {
+    
+    return
 
-    windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrA(hwnd, windows::Win32::UI::WindowsAndMessaging::GWL_STYLE) & windows::Win32::UI::WindowsAndMessaging::WS_MAXIMIZE.0 as isize != 0
+        !windows::Win32::UI::WindowsAndMessaging::IsIconic(hwnd).as_bool() &&
+        !windows::Win32::UI::WindowsAndMessaging::IsZoomed(hwnd).as_bool() &&
+        !windows::Win32::UI::WindowsAndMessaging::IsWindowArranged(hwnd).as_bool()
 
-}
-
-unsafe fn is_minimized(hwnd: windows::Win32::Foundation::HWND) -> bool {
-
-    windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrA(hwnd, windows::Win32::UI::WindowsAndMessaging::GWL_STYLE) & windows::Win32::UI::WindowsAndMessaging::WS_MINIMIZE.0 as isize != 0
-
-}
-
-unsafe fn is_visible(hwnd: windows::Win32::Foundation::HWND) -> bool {
-
-    windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrA(hwnd, windows::Win32::UI::WindowsAndMessaging::GWL_STYLE) & windows::Win32::UI::WindowsAndMessaging::WS_VISIBLE.0 as isize != 0
+        ;
 
 }
 
