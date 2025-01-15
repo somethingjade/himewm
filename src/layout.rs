@@ -192,7 +192,7 @@ impl Layout {
 
     }
 
-    pub fn update(&mut self, padding: i32) {
+    pub fn update(&mut self, window_padding: i32, edge_padding: i32) {
 
         match &mut self.end_tiling_behaviour {
             
@@ -221,37 +221,37 @@ impl Layout {
             for zone in zones {
 
                 let mut position = Position {
-                    x: zone.left - 7 + padding ,
-                    y: zone.top + padding,
-                    cx: zone.w() + 14 - 2*padding,
-                    cy: zone.h() + 7 - 2*padding,
+                    x: zone.left - 7 + window_padding ,
+                    y: zone.top + window_padding,
+                    cx: zone.w() + 14 - 2*window_padding,
+                    cy: zone.h() + 7 - 2*window_padding,
                 };
 
                 if zone.left == self.monitor_rect.left {
 
-                    position.x += padding;
+                    position.x = position.x - window_padding + edge_padding;
 
-                    position.cx -= padding;
+                    position.cx = position.cx + window_padding - edge_padding;
                 
                 }
 
                 if zone.top == self.monitor_rect.top {
                 
-                    position.y += padding;
+                    position.y = position.y - window_padding + edge_padding;
                     
-                    position.cy -= padding;
+                    position.cy = position.cy + window_padding - edge_padding;
                 
                 }
 
                 if zone.right == self.monitor_rect.right {
                 
-                    position.cx -= padding;
+                    position.cx = position.cx + window_padding - edge_padding;
                 
                 }
 
                 if zone.bottom == self.monitor_rect.bottom {
                 
-                    position.cy -= padding;
+                    position.cy = position.cy + window_padding - edge_padding;
                 
                 }
 
@@ -777,11 +777,11 @@ impl LayoutGroup {
 
     }
 
-    pub fn update_all(&mut self, padding: i32) {
+    pub fn update_all(&mut self, window_padding: i32, edge_padding: i32) {
 
         for layout in self.layouts.iter_mut() {
 
-            layout.update(padding);
+            layout.update(window_padding, edge_padding);
 
         }
 

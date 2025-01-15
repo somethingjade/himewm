@@ -33,7 +33,7 @@ mod hotkey_identifiers {
 
     pub const REFRESH_WORKSPACE: usize = 14;
 
-    pub const DISABLE_WORKSPACE: usize = 15;
+    pub const TOGGLE_WORKSPACE: usize = 15;
 
 }
 
@@ -69,7 +69,7 @@ unsafe fn register_hotkeys() {
 
     let _refresh_workspace = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::REFRESH_WORKSPACE as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x59);
 
-    let _disable_workspace = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::DISABLE_WORKSPACE as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x4F);
+    let _toggle_workspace = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::TOGGLE_WORKSPACE as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x4F);
 
 }
 
@@ -203,11 +203,13 @@ unsafe fn handle_message(msg: windows::Win32::UI::WindowsAndMessaging::MSG, wm: 
 
                 hotkey_identifiers::REFRESH_WORKSPACE => {
 
+                    wm.refresh_workspace();
 
                 },
 
-                hotkey_identifiers::DISABLE_WORKSPACE => {
+                hotkey_identifiers::TOGGLE_WORKSPACE => {
 
+                    wm.toggle_workspace();
 
                 },
 
@@ -341,7 +343,8 @@ mod test {
 
             wm.get_settings_mut().set_disable_rounding(true);
             wm.get_settings_mut().set_disable_unfocused_border(true);
-            wm.get_settings_mut().set_padding(6);
+            wm.get_settings_mut().set_window_padding(12);
+            wm.get_settings_mut().set_edge_padding(24);
 
             wm.initialize_with_layout_group(layout_group);
             wm.add_layout_group(second_layout_group);

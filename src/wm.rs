@@ -37,7 +37,8 @@ impl Workspace {
 
 #[derive(Debug)]
 pub struct Settings {
-    padding: i32,
+    window_padding: i32,
+    edge_padding: i32,
     disable_rounding: bool,
     disable_unfocused_border: bool,
     focused_border_colour: windows::Win32::Foundation::COLORREF
@@ -48,7 +49,8 @@ impl Default for Settings {
     fn default() -> Self {
     
         Settings {
-            padding: 0,
+            window_padding: 0,
+            edge_padding: 0,
             disable_rounding: false,
             disable_unfocused_border: false,
             focused_border_colour: windows::Win32::Foundation::COLORREF(0x00FFFFFF),
@@ -59,15 +61,27 @@ impl Default for Settings {
 
 impl Settings {
 
-    pub fn get_padding(&self) -> i32 {
+    pub fn get_window_padding(&self) -> i32 {
 
-        self.padding
+        self.window_padding
 
     }
 
-    pub fn set_padding(&mut self, val: i32) {
+    pub fn set_window_padding(&mut self, val: i32) {
 
-        self.padding = val;
+        self.window_padding = val;
+
+    }
+
+    pub fn get_edge_padding(&self) -> i32 {
+
+        self.edge_padding
+
+    }
+
+    pub fn set_edge_padding(&mut self, val: i32) {
+
+        self.edge_padding = val;
 
     }
 
@@ -182,7 +196,7 @@ impl WindowManager {
             
             };
 
-            layout.update_all(self.settings.padding);
+            layout.update_all(self.settings.window_padding, self.settings.edge_padding);
 
             layouts.push(layout);
 
@@ -222,7 +236,7 @@ impl WindowManager {
             
             };
 
-            layout.update_all(self.settings.padding);
+            layout.update_all(self.settings.window_padding, self.settings.edge_padding);
 
             layouts.push(layout);
 
@@ -453,6 +467,18 @@ impl WindowManager {
                 }
 
             }
+
+        }
+
+        if self.foreground_hwnd == Some(hwnd) {
+
+            self.foreground_hwnd = None;
+
+        }
+
+        if self.grabbed_window == Some(hwnd) {
+
+            self.grabbed_window = None;
 
         }
 
@@ -790,7 +816,7 @@ impl WindowManager {
          
                     layout.extend();
 
-                    layout.update(self.settings.padding);
+                    layout.update(self.settings.window_padding, self.settings.edge_padding);
 
                 }
 
@@ -1550,13 +1576,29 @@ impl WindowManager {
 
         match self.workspaces.get(&(window_desktop_id, new_monitor_id.0)) {
         
-            Some(val) if val.managed_window_handles.len() != 0 => (),
+            Some(w) => {
 
-            _ => return,
+                self.move_windows_across_monitors(window_desktop_id, original_monitor_id, new_monitor_id, original_window_idx, w.managed_window_handles.len());
+
+            },
+
+            None => {
+                
+                self.remove_hwnd(window_desktop_id, original_monitor_id, original_window_idx);
+
+                let layout_idx = self.hmonitor_default_layout_indices.get(&new_monitor_id.0).unwrap();
+
+                self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(foreground_hwnd, *layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[*layout_idx].default_idx()));
+
+                let location_mut = self.hwnd_locations.get_mut(&foreground_hwnd.0).unwrap();
+
+                location_mut.1 = new_monitor_id;
+
+                location_mut.3 = 0;
+
+            },
         
         };
-
-        self.move_windows_across_monitors(window_desktop_id, original_monitor_id, new_monitor_id, original_window_idx, 0);
 
         self.update_workspace(window_desktop_id, original_monitor_id);
 
@@ -1664,13 +1706,29 @@ impl WindowManager {
 
         match self.workspaces.get(&(window_desktop_id, new_monitor_id.0)) {
         
-            Some(val) if val.managed_window_handles.len() != 0 => (),
+            Some(w) => {
 
-            _ => return,
+                self.move_windows_across_monitors(window_desktop_id, original_monitor_id, new_monitor_id, original_window_idx, w.managed_window_handles.len());
+
+            },
+
+            None => {
+                
+                self.remove_hwnd(window_desktop_id, original_monitor_id, original_window_idx);
+
+                let layout_idx = self.hmonitor_default_layout_indices.get(&new_monitor_id.0).unwrap();
+
+                self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(foreground_hwnd, *layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[*layout_idx].default_idx()));
+
+                let location_mut = self.hwnd_locations.get_mut(&foreground_hwnd.0).unwrap();
+
+                location_mut.1 = new_monitor_id;
+
+                location_mut.3 = 0;
+
+            },
         
         };
-
-        self.move_windows_across_monitors(window_desktop_id, original_monitor_id, new_monitor_id, original_window_idx, 0);
 
         self.update_workspace(window_desktop_id, original_monitor_id);
 
@@ -1781,6 +1839,79 @@ impl WindowManager {
 
     }
 
+    pub unsafe fn refresh_workspace(&mut self) {
+
+        let foreground_hwnd = match self.foreground_hwnd {
+
+            Some(hwnd) => hwnd,
+
+            None => return,
+            
+        };
+
+        let (window_desktop_id, monitor_id, _, _) = match self.hwnd_locations.get(&foreground_hwnd.0) {
+            
+            Some(val) => val,
+
+            None => return,
+
+        };
+
+        let workspace = match self.workspaces.get(&(*window_desktop_id, monitor_id.0)) {
+            
+            Some(val) => val,
+
+            None => return,
+
+        };
+
+        for h in workspace.managed_window_handles.clone() {
+
+            if !windows::Win32::UI::WindowsAndMessaging::IsWindow(Some(h)).as_bool() {
+
+                self.window_destroyed(h);
+
+            }
+
+        }
+
+    }
+
+    pub unsafe fn toggle_workspace(&mut self) {
+
+        let foreground_hwnd = match self.foreground_hwnd {
+
+            Some(hwnd) => hwnd,
+
+            None => return,
+            
+        };
+
+        let (window_desktop_id, monitor_id, _, _) = match self.hwnd_locations.get(&foreground_hwnd.0) {
+            
+            Some(val) => val,
+
+            None => return,
+
+        };
+
+        if self.ignored_combinations.contains(&(*window_desktop_id, monitor_id.0)) {
+
+            self.ignored_combinations.remove(&(*window_desktop_id, monitor_id.0));
+
+            self.update_workspace(*window_desktop_id, *monitor_id);
+
+        }
+
+        else {
+
+            self.ignored_combinations.insert((*window_desktop_id, monitor_id.0));
+
+        }
+
+
+    }
+
     unsafe fn update_workspace(&mut self, guid: windows::core::GUID, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) {
 
         if self.ignored_combinations.contains(&(guid, hmonitor.0)) {
@@ -1809,7 +1940,7 @@ impl WindowManager {
  
             layout.extend();
 
-            layout.update(self.settings.padding);
+            layout.update(self.settings.window_padding, self.settings.edge_padding);
 
         }
 
@@ -1964,6 +2095,34 @@ impl WindowManager {
         let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_WINDOW_CORNER_PREFERENCE, &corner_preference as *const windows::Win32::Graphics::Dwm::DWM_WINDOW_CORNER_PREFERENCE as *const core::ffi::c_void, std::mem::size_of_val(&corner_preference) as u32);
 
         self.set_border_to_unfocused(hwnd);
+
+    }
+
+    fn remove_hwnd(&mut self, guid: windows::core::GUID, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, idx: usize) {
+
+        let workspace = match self.workspaces.get_mut(&(guid, hmonitor.0)) {
+
+            Some(w) if w.managed_window_handles.len() > idx => w,
+            
+            _ => return,
+        
+        };
+
+        workspace.managed_window_handles.remove(idx);
+
+        for (g, h, _, i) in self.hwnd_locations.values_mut() {
+
+            if 
+                *g == guid &&
+                *h == hmonitor &&
+                *i > idx
+            {
+
+                *i -= 1;
+
+            }
+
+        }
 
     }
 
@@ -2162,7 +2321,8 @@ unsafe fn is_restored(hwnd: windows::Win32::Foundation::HWND) -> bool {
 
         !windows::Win32::UI::WindowsAndMessaging::IsIconic(hwnd).as_bool() &&
         !windows::Win32::UI::WindowsAndMessaging::IsZoomed(hwnd).as_bool() &&
-        !windows::Win32::UI::WindowsAndMessaging::IsWindowArranged(hwnd).as_bool()
+        !windows::Win32::UI::WindowsAndMessaging::IsWindowArranged(hwnd).as_bool() &&
+        windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(hwnd).as_bool()
 
         ;
 
