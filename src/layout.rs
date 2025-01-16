@@ -1,3 +1,11 @@
+use windows::Win32::{
+
+    Foundation::*, 
+
+    Graphics::Gdi::*
+
+};
+
 #[derive(Clone, Debug)]
 pub enum Direction {
     Horizontal,
@@ -119,7 +127,7 @@ pub struct Position {
 
 #[derive(Clone, Debug)]
 pub struct Layout {
-    monitor_rect: windows::Win32::Foundation::RECT,
+    monitor_rect: RECT,
     zones: Vec<Vec<Zone>>,
     manual_zones_until: usize,
     end_tiling_behaviour: EndTilingBehaviour,
@@ -128,13 +136,13 @@ pub struct Layout {
 
 impl Layout {
     
-    unsafe fn new(hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Self {
+    unsafe fn new(hmonitor: HMONITOR) -> Self {
 
-        let mut monitor_info = windows::Win32::Graphics::Gdi::MONITORINFO::default();
+        let mut monitor_info = MONITORINFO::default();
 
-        monitor_info.cbSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32;
+        monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
 
-        let _ = windows::Win32::Graphics::Gdi::GetMonitorInfoA(hmonitor, &mut monitor_info);
+        let _ = GetMonitorInfoA(hmonitor, &mut monitor_info);
 
         let mut ret = Layout {
             monitor_rect: monitor_info.rcWork,
@@ -738,7 +746,7 @@ pub struct LayoutGroup {
 
 impl LayoutGroup {
 
-    pub unsafe fn new(hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Self {
+    pub unsafe fn new(hmonitor: HMONITOR) -> Self {
 
         LayoutGroup {
             layouts: vec![Layout::new(hmonitor)],
@@ -787,13 +795,13 @@ impl LayoutGroup {
 
     }
 
-    pub unsafe fn convert_for_monitor(layout_group: &LayoutGroup, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Option<LayoutGroup> {
+    pub unsafe fn convert_for_monitor(layout_group: &LayoutGroup, hmonitor: HMONITOR) -> Option<LayoutGroup> {
 
-        let mut monitor_info = windows::Win32::Graphics::Gdi::MONITORINFO::default();
+        let mut monitor_info = MONITORINFO::default();
 
-        monitor_info.cbSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32;
+        monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
 
-        windows::Win32::Graphics::Gdi::GetMonitorInfoA(hmonitor, &mut monitor_info);
+        GetMonitorInfoA(hmonitor, &mut monitor_info);
         
         let monitor_rect = monitor_info.rcWork;
 

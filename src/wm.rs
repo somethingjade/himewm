@@ -1,16 +1,50 @@
+use windows::{
+
+    core::*,
+
+    Win32::{
+
+        Foundation::*, 
+        
+        Graphics::{
+        
+            Dwm::*, Gdi::*
+        
+        }, 
+        
+        System::Com::*, 
+        
+        UI::{
+    
+            Accessibility::*, 
+            
+            HiDpi::*, 
+            
+            Shell::*, 
+            
+            WindowsAndMessaging::*
+        
+        }
+
+    }
+
+};
+
 pub mod messages {
-    
-    pub const WINDOW_CREATED: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 1;
 
-    pub const WINDOW_DESTROYED: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 2;
+    use windows::Win32::UI::WindowsAndMessaging::WM_APP;
     
-    pub const WINDOW_MINIMIZED_OR_MAXIMIZED: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 3;
-    
-    pub const WINDOW_CLOAKED: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 4;
-    
-    pub const FOREGROUND_WINDOW_CHANGED: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 5;
+    pub const WINDOW_CREATED: u32 = WM_APP + 1;
 
-    pub const WINDOW_MOVE_FINISHED: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 6;
+    pub const WINDOW_DESTROYED: u32 = WM_APP + 2;
+    
+    pub const WINDOW_MINIMIZED_OR_MAXIMIZED: u32 = WM_APP + 3;
+    
+    pub const WINDOW_CLOAKED: u32 = WM_APP + 4;
+    
+    pub const FOREGROUND_WINDOW_CHANGED: u32 = WM_APP + 5;
+
+    pub const WINDOW_MOVE_FINISHED: u32 = WM_APP + 6;
 
 }
 
@@ -18,12 +52,12 @@ pub mod messages {
 pub struct Workspace {
     layout_idx: usize,
     variant_idx: usize,
-    managed_window_handles: Vec<windows::Win32::Foundation::HWND>,
+    managed_window_handles: Vec<HWND>,
 }
 
 impl Workspace {
 
-    unsafe fn new(hwnd: windows::Win32::Foundation::HWND, layout_idx: usize, variant_idx: usize) -> Self {
+    unsafe fn new(hwnd: HWND, layout_idx: usize, variant_idx: usize) -> Self {
 
         Workspace {
             layout_idx,
@@ -41,7 +75,7 @@ pub struct Settings {
     edge_padding: i32,
     disable_rounding: bool,
     disable_unfocused_border: bool,
-    focused_border_colour: windows::Win32::Foundation::COLORREF
+    focused_border_colour: COLORREF
 }
 
 impl Default for Settings {
@@ -53,7 +87,7 @@ impl Default for Settings {
             edge_padding: 0,
             disable_rounding: false,
             disable_unfocused_border: false,
-            focused_border_colour: windows::Win32::Foundation::COLORREF(0x00FFFFFF),
+            focused_border_colour: COLORREF(0x00FFFFFF),
         }
     
     }
@@ -117,21 +151,21 @@ impl Settings {
 
     pub fn set_focused_border_colour(&mut self, val: u32) {
 
-        self.focused_border_colour = windows::Win32::Foundation::COLORREF(val);
+        self.focused_border_colour = COLORREF(val);
 
     }
 
-    fn get_unfocused_border_colour(&self) -> windows::Win32::Foundation::COLORREF {
+    fn get_unfocused_border_colour(&self) -> COLORREF {
 
         if self.disable_unfocused_border {
 
-            return windows::Win32::Foundation::COLORREF(windows::Win32::Graphics::Dwm::DWMWA_COLOR_NONE);
+            return COLORREF(DWMWA_COLOR_NONE);
 
         }
 
         else {
 
-            return windows::Win32::Foundation::COLORREF(windows::Win32::Graphics::Dwm::DWMWA_COLOR_DEFAULT);
+            return COLORREF(DWMWA_COLOR_DEFAULT);
 
         }
 
@@ -140,17 +174,17 @@ impl Settings {
 }
 
 pub struct WindowManager {
-    virtual_desktop_manager: windows::Win32::UI::Shell::IVirtualDesktopManager,
-    event_hook: windows::Win32::UI::Accessibility::HWINEVENTHOOK,
+    virtual_desktop_manager: IVirtualDesktopManager,
+    event_hook: HWINEVENTHOOK,
     hmonitor_default_layout_indices: std::collections::HashMap<*mut core::ffi::c_void, usize>,
-    hwnd_locations: std::collections::HashMap<*mut core::ffi::c_void, (windows::core::GUID, windows::Win32::Graphics::Gdi::HMONITOR, bool, usize)>, 
-    workspaces: std::collections::HashMap<(windows::core::GUID, *mut core::ffi::c_void), Workspace>,
-    foreground_hwnd: Option<windows::Win32::Foundation::HWND>,
+    hwnd_locations: std::collections::HashMap<*mut core::ffi::c_void, (GUID, HMONITOR, bool, usize)>, 
+    workspaces: std::collections::HashMap<(GUID, *mut core::ffi::c_void), Workspace>,
+    foreground_hwnd: Option<HWND>,
     layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<crate::layout::LayoutGroup>>,
     settings: Settings,
-    ordered_hmonitors: Vec<windows::Win32::Graphics::Gdi::HMONITOR>,
-    grabbed_window: Option<windows::Win32::Foundation::HWND>,
-    ignored_combinations: std::collections::HashSet<(windows::core::GUID, *mut core::ffi::c_void)>,
+    ordered_hmonitors: Vec<HMONITOR>,
+    grabbed_window: Option<HWND>,
+    ignored_combinations: std::collections::HashSet<(GUID, *mut core::ffi::c_void)>,
     ignored_hwnds: std::collections::HashSet<*mut core::ffi::c_void>,
 }
 
@@ -158,11 +192,11 @@ impl WindowManager {
 
     pub unsafe fn new() -> Self {
 
-        let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_MULTITHREADED);
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
 
         WindowManager {
-            virtual_desktop_manager: windows::Win32::System::Com::CoCreateInstance(&windows::Win32::UI::Shell::VirtualDesktopManager, None, windows::Win32::System::Com::CLSCTX_INPROC_SERVER).unwrap(),
-            event_hook: windows::Win32::UI::Accessibility::SetWinEventHook(windows::Win32::UI::WindowsAndMessaging::EVENT_MIN, windows::Win32::UI::WindowsAndMessaging::EVENT_MAX, None, Some(Self::event_handler), 0, 0, windows::Win32::UI::WindowsAndMessaging::WINEVENT_OUTOFCONTEXT),
+            virtual_desktop_manager: CoCreateInstance(&VirtualDesktopManager, None, CLSCTX_INPROC_SERVER).unwrap(),
+            event_hook: SetWinEventHook(EVENT_MIN, EVENT_MAX, None, Some(Self::event_handler), 0, 0, WINEVENT_OUTOFCONTEXT),
             hmonitor_default_layout_indices: std::collections::HashMap::new(),
             hwnd_locations: std::collections::HashMap::new(),
             workspaces: std::collections::HashMap::new(),
@@ -179,7 +213,7 @@ impl WindowManager {
 
     pub unsafe fn initialize_monitors(&mut self) {
 
-        let _ = windows::Win32::Graphics::Gdi::EnumDisplayMonitors(None, None, Some(Self::enum_display_monitors_callback), windows::Win32::Foundation::LPARAM(self as *mut WindowManager as isize));
+        let _ = EnumDisplayMonitors(None, None, Some(Self::enum_display_monitors_callback), LPARAM(self as *mut WindowManager as isize));
         
     }
 
@@ -188,7 +222,7 @@ impl WindowManager {
 
         for (hmonitor, layouts) in self.layouts.iter_mut() {
 
-            let mut layout = match crate::layout::LayoutGroup::convert_for_monitor(&default_layout_group, windows::Win32::Graphics::Gdi::HMONITOR(*hmonitor)) {
+            let mut layout = match crate::layout::LayoutGroup::convert_for_monitor(&default_layout_group, HMONITOR(*hmonitor)) {
 
                 Some(val) => val,
                 
@@ -202,9 +236,9 @@ impl WindowManager {
 
         }
 
-        windows::Win32::UI::WindowsAndMessaging::EnumWindows(Some(Self::enum_windows_callback), windows::Win32::Foundation::LPARAM(self as *mut WindowManager as isize)).unwrap();
+        EnumWindows(Some(Self::enum_windows_callback), LPARAM(self as *mut WindowManager as isize)).unwrap();
 
-        let foreground_hwnd = windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow();
+        let foreground_hwnd = GetForegroundWindow();
 
         if self.hwnd_locations.contains_key(&foreground_hwnd.0) {
 
@@ -218,7 +252,7 @@ impl WindowManager {
 
     }
 
-    pub fn set_default_layout_idx(&mut self, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, idx: usize) {
+    pub fn set_default_layout_idx(&mut self, hmonitor: HMONITOR, idx: usize) {
 
         *self.hmonitor_default_layout_indices.get_mut(&hmonitor.0).unwrap() = idx;
 
@@ -228,7 +262,7 @@ impl WindowManager {
         
         for (hmonitor, layouts) in self.layouts.iter_mut() {
 
-            let mut layout = match crate::layout::LayoutGroup::convert_for_monitor(&layout_group, windows::Win32::Graphics::Gdi::HMONITOR(*hmonitor)) {
+            let mut layout = match crate::layout::LayoutGroup::convert_for_monitor(&layout_group, HMONITOR(*hmonitor)) {
                 
                 Some(val) => val,
             
@@ -256,13 +290,13 @@ impl WindowManager {
 
     }
 
-    pub fn get_monitor_vec(&self) -> &Vec<windows::Win32::Graphics::Gdi::HMONITOR> {
+    pub fn get_monitor_vec(&self) -> &Vec<HMONITOR> {
         
         &self.ordered_hmonitors
 
     }
 
-    pub unsafe fn window_created(&mut self, hwnd: windows::Win32::Foundation::HWND) {
+    pub unsafe fn window_created(&mut self, hwnd: HWND) {
 
         if self.ignored_hwnds.contains(&hwnd.0) {
 
@@ -320,7 +354,7 @@ impl WindowManager {
                         
                         match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
 
-                            Ok(guid) if guid != windows::core::GUID::zeroed() => {
+                            Ok(guid) if guid != GUID::zeroed() => {
 
                                 window_desktop_id = guid;
 
@@ -337,7 +371,7 @@ impl WindowManager {
 
                 }
 
-                monitor_id = windows::Win32::Graphics::Gdi::MonitorFromWindow(hwnd, windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTONULL);
+                monitor_id = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
 
                 if monitor_id.is_invalid() {
 
@@ -422,7 +456,7 @@ impl WindowManager {
 
     }
 
-    pub unsafe fn window_destroyed(&mut self, hwnd: windows::Win32::Foundation::HWND) {
+    pub unsafe fn window_destroyed(&mut self, hwnd: HWND) {
 
         let location = match self.hwnd_locations.get(&hwnd.0) {
 
@@ -438,35 +472,13 @@ impl WindowManager {
 
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
-
-        let flag = location.2;
-
-        let idx = location.3;
+        let (window_desktop_id, monitor_id, flag, idx) = location.to_owned();
 
         self.hwnd_locations.remove(&hwnd.0);
 
         if !flag {
 
-            let workspace = self.workspaces.get_mut(&(window_desktop_id, monitor_id.0)).unwrap();
-
-            workspace.managed_window_handles.remove(idx);
-
-            for (guid, hmonitor, _, i) in self.hwnd_locations.values_mut() {
-
-                if 
-                    *guid == window_desktop_id && 
-                    *hmonitor == monitor_id &&
-                    *i > idx 
-                {
-
-                        *i -= 1;
-
-                }
-
-            }
+            self.remove_hwnd(window_desktop_id, monitor_id, idx);
 
         }
 
@@ -486,7 +498,7 @@ impl WindowManager {
 
     }
 
-    pub unsafe fn window_minimized_or_maximized(&mut self, hwnd: windows::Win32::Foundation::HWND) {
+    pub unsafe fn window_minimized_or_maximized(&mut self, hwnd: HWND) {
 
         let location = match self.hwnd_locations.get_mut(&hwnd.0) {
 
@@ -496,31 +508,11 @@ impl WindowManager {
 
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
-
-        let idx = location.3;
-
-        let workspace = self.workspaces.get_mut(&(window_desktop_id, monitor_id.0)).unwrap();
-
-        workspace.managed_window_handles.remove(idx);
+        let (window_desktop_id, monitor_id, _, idx) = location.to_owned();
 
         location.2 = true;
 
-        for (guid, hmonitor, _, i) in self.hwnd_locations.values_mut() {
-
-            if 
-                *guid == window_desktop_id && 
-                *hmonitor == monitor_id &&
-                *i > idx 
-            {
-
-                    *i -= 1;
-
-            }
-
-        }
+        self.remove_hwnd(window_desktop_id, monitor_id, idx);
 
         match self.grabbed_window {
             
@@ -538,7 +530,7 @@ impl WindowManager {
 
     }
 
-    pub unsafe fn window_cloaked(&mut self, hwnd: windows::Win32::Foundation::HWND) {
+    pub unsafe fn window_cloaked(&mut self, hwnd: HWND) {
 
         let location= match self.hwnd_locations.get(&hwnd.0) {
             
@@ -548,9 +540,7 @@ impl WindowManager {
         
         };
 
-        let old_window_desktop_id = location.0;
-
-        let monitor_id = location.1;
+        let (old_window_desktop_id, monitor_id, flag, old_idx) = location.to_owned();
 
         let new_window_desktop_id = match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
 
@@ -560,31 +550,11 @@ impl WindowManager {
 
         };
 
-        let flag = location.2;
-
-        let old_idx = location.3;
-
         let new_idx;
 
         if !flag {
 
-            let old_workspace = self.workspaces.get_mut(&(old_window_desktop_id, monitor_id.0)).unwrap();
-
-            old_workspace.managed_window_handles.remove(old_idx);
-
-            for (guid, hmonitor, _, i) in self.hwnd_locations.values_mut() {
-
-                if 
-                    *guid == old_window_desktop_id &&
-                    *hmonitor == monitor_id &&
-                    *i > old_idx
-                {
-
-                        *i -= 1;
-
-                }
-
-            }
+            self.remove_hwnd(old_window_desktop_id, monitor_id, old_idx);
 
             match self.workspaces.get_mut(&(new_window_desktop_id, monitor_id.0)) {
 
@@ -653,7 +623,7 @@ impl WindowManager {
 
     }
     
-    pub unsafe fn foreground_window_changed(&mut self, hwnd: windows::Win32::Foundation::HWND) {
+    pub unsafe fn foreground_window_changed(&mut self, hwnd: HWND) {
     
         if !self.hwnd_locations.contains_key(&hwnd.0) {
 
@@ -683,9 +653,7 @@ impl WindowManager {
 
             let location = self.hwnd_locations.get(&hwnd.0).unwrap();
 
-            let window_desktop_id = location.0;
-
-            let monitor_id = location.1;
+            let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
             for (h, (guid, hmonitor, flag, _)) in self.hwnd_locations.iter_mut() {
 
@@ -693,10 +661,10 @@ impl WindowManager {
                     *guid == window_desktop_id &&
                     *hmonitor == monitor_id &&
                     *flag &&
-                    !windows::Win32::UI::WindowsAndMessaging::IsIconic(windows::Win32::Foundation::HWND(*h)).as_bool()
+                    !IsIconic(HWND(*h)).as_bool()
                 {
 
-                        let _ = windows::Win32::UI::WindowsAndMessaging::ShowWindow(windows::Win32::Foundation::HWND(*h), windows::Win32::UI::WindowsAndMessaging::SW_MINIMIZE);
+                        let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
 
                 }
 
@@ -706,7 +674,7 @@ impl WindowManager {
 
     }
 
-    pub unsafe fn window_move_finished(&mut self, hwnd: windows::Win32::Foundation::HWND) {
+    pub unsafe fn window_move_finished(&mut self, hwnd: HWND) {
 
         let location = match self.hwnd_locations.get_mut(&hwnd.0) {
 
@@ -716,15 +684,9 @@ impl WindowManager {
 
         };
 
-        let window_desktop_id = location.0;
+        let (window_desktop_id, original_monitor_id, flag, idx) = location.to_owned();
 
-        let original_monitor_id = location.1;
-
-        let flag = location.2;
-
-        let idx = location.3;
-
-        let new_monitor_id = windows::Win32::Graphics::Gdi::MonitorFromWindow(hwnd, windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTONULL);
+        let new_monitor_id = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
 
         if flag {
 
@@ -752,9 +714,9 @@ impl WindowManager {
 
         let changed_monitors = original_monitor_id != new_monitor_id;
 
-        let mut moved_to = windows::Win32::Foundation::RECT::default();
+        let mut moved_to = RECT::default();
 
-        windows::Win32::UI::WindowsAndMessaging::GetWindowRect(hwnd, &mut moved_to).unwrap();
+        GetWindowRect(hwnd, &mut moved_to).unwrap();
 
         let moved_to_area = (moved_to.right - moved_to.left)*(moved_to.bottom - moved_to.top);
 
@@ -919,11 +881,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
-
-        let idx = location.3;
+        let (window_desktop_id, monitor_id, _, idx) = location.to_owned();
 
         let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
         
@@ -947,7 +905,7 @@ impl WindowManager {
 
             };
 
-        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[to]);
+        let _ = SetForegroundWindow(workspace.managed_window_handles[to]);
 
     }
 
@@ -969,11 +927,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
-
-        let idx = location.3;
+        let (window_desktop_id, monitor_id, _, idx) = location.to_owned();
 
         let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
         
@@ -997,7 +951,7 @@ impl WindowManager {
 
             };
 
-        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[to]);
+        let _ = SetForegroundWindow(workspace.managed_window_handles[to]);
 
     }
 
@@ -1019,11 +973,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
-
-        let idx = location.3;
+        let (window_desktop_id, monitor_id, _, idx) = location.to_owned();
 
         if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
 
@@ -1077,11 +1027,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
-
-        let idx = location.3;
+        let (window_desktop_id, monitor_id, _, idx) = location.to_owned();
 
         let workspace = match self.workspaces.get(&(window_desktop_id, monitor_id.0)) {
         
@@ -1135,9 +1081,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
+        let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
         if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
 
@@ -1183,9 +1127,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
+        let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
         if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
 
@@ -1236,9 +1178,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
+        let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
         if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
 
@@ -1297,10 +1237,8 @@ impl WindowManager {
             _ => return,
         
         };
-
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
+        
+        let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
         if self.ignored_combinations.contains(&(window_desktop_id, monitor_id.0)) {
 
@@ -1366,9 +1304,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
+        let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
         let mut idx = self.ordered_hmonitors.len();
 
@@ -1408,7 +1344,7 @@ impl WindowManager {
         
         };
 
-        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[0]);
+        let _ = SetForegroundWindow(workspace.managed_window_handles[0]);
 
     }
 
@@ -1435,10 +1371,8 @@ impl WindowManager {
             _ => return,
         
         };
-
-        let window_desktop_id = location.0;
-
-        let monitor_id = location.1;
+        
+        let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
         let mut idx = self.ordered_hmonitors.len();
 
@@ -1478,7 +1412,7 @@ impl WindowManager {
         
         };
 
-        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(workspace.managed_window_handles[0]);
+        let _ = SetForegroundWindow(workspace.managed_window_handles[0]);
 
     }
 
@@ -1498,7 +1432,7 @@ impl WindowManager {
         
         };
 
-        let original_dpi = windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd);
+        let original_dpi = GetDpiForWindow(foreground_hwnd);
 
         let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
@@ -1508,11 +1442,7 @@ impl WindowManager {
         
         };
 
-        let window_desktop_id = location.0;
-
-        let original_monitor_id = location.1;
-
-        let original_window_idx = location.3;
+        let (window_desktop_id, original_monitor_id, _, original_window_idx) = location.to_owned();
 
         if self.ignored_combinations.contains(&(window_desktop_id, original_monitor_id.0)) {
 
@@ -1532,7 +1462,7 @@ impl WindowManager {
 
         }
 
-        let mut new_monitor_id = windows::Win32::Graphics::Gdi::HMONITOR::default();
+        let mut new_monitor_id = HMONITOR::default();
 
         if hmonitor_idx == self.ordered_hmonitors.len() {
 
@@ -1604,7 +1534,7 @@ impl WindowManager {
 
         self.update_workspace(window_desktop_id, new_monitor_id);
 
-        if windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd) != original_dpi {
+        if GetDpiForWindow(foreground_hwnd) != original_dpi {
 
             self.update_workspace(window_desktop_id, new_monitor_id);
 
@@ -1628,7 +1558,7 @@ impl WindowManager {
         
         };
 
-        let original_dpi = windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd);
+        let original_dpi = GetDpiForWindow(foreground_hwnd);
 
         let location = match self.hwnd_locations.get(&foreground_hwnd.0) {
             
@@ -1637,12 +1567,8 @@ impl WindowManager {
             _ => return,
         
         };
-
-        let window_desktop_id = location.0;
-
-        let original_monitor_id = location.1;
-
-        let original_window_idx = location.3;
+        
+        let (window_desktop_id, original_monitor_id, _, original_window_idx) = location.to_owned();
 
         if self.ignored_combinations.contains(&(window_desktop_id, original_monitor_id.0)) {
 
@@ -1662,7 +1588,7 @@ impl WindowManager {
 
         }
 
-        let mut new_monitor_id = windows::Win32::Graphics::Gdi::HMONITOR::default();
+        let mut new_monitor_id = HMONITOR::default();
 
         if hmonitor_idx == self.ordered_hmonitors.len() {
 
@@ -1734,7 +1660,7 @@ impl WindowManager {
 
         self.update_workspace(window_desktop_id, new_monitor_id);
 
-        if windows::Win32::UI::HiDpi::GetDpiForWindow(foreground_hwnd) != original_dpi {
+        if GetDpiForWindow(foreground_hwnd) != original_dpi {
 
             self.update_workspace(window_desktop_id, new_monitor_id);
 
@@ -1821,13 +1747,13 @@ impl WindowManager {
 
             self.move_windows_across_monitors(original_window_desktop_id, original_monitor_id, new_monitor_id, original_idx, new_idx);
 
-            let original_dpi = windows::Win32::UI::HiDpi::GetDpiForWindow(grabbed_window);
+            let original_dpi = GetDpiForWindow(grabbed_window);
             
             self.update_workspace(original_window_desktop_id, original_monitor_id);
             
             self.update_workspace(original_window_desktop_id, new_monitor_id);
 
-            if windows::Win32::UI::HiDpi::GetDpiForWindow(grabbed_window) != original_dpi {
+            if GetDpiForWindow(grabbed_window) != original_dpi {
             
                 self.update_workspace(original_window_desktop_id, new_monitor_id);
 
@@ -1867,7 +1793,7 @@ impl WindowManager {
 
         for h in workspace.managed_window_handles.clone() {
 
-            if !windows::Win32::UI::WindowsAndMessaging::IsWindow(Some(h)).as_bool() {
+            if !IsWindow(Some(h)).as_bool() {
 
                 self.window_destroyed(h);
 
@@ -1912,7 +1838,7 @@ impl WindowManager {
 
     }
 
-    unsafe fn update_workspace(&mut self, guid: windows::core::GUID, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR) {
+    unsafe fn update_workspace(&mut self, guid: GUID, hmonitor: HMONITOR) {
 
         if self.ignored_combinations.contains(&(guid, hmonitor.0)) {
 
@@ -1950,9 +1876,9 @@ impl WindowManager {
 
         for (i, hwnd) in workspace.managed_window_handles.iter().enumerate() {
 
-            match windows::Win32::UI::WindowsAndMessaging::SetWindowPos(*hwnd, None, positions[i].x, positions[i].y, positions[i].cx, positions[i].cy, windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER) {
+            match SetWindowPos(*hwnd, None, positions[i].x, positions[i].y, positions[i].cx, positions[i].cy, SWP_NOZORDER) {
 
-                Err(_) if windows::Win32::Foundation::GetLastError().0 == 5 => {
+                Err(_) if GetLastError().0 == 5 => {
 
                     match &mut error_indices {
 
@@ -1994,16 +1920,16 @@ impl WindowManager {
 
     unsafe fn update(&mut self) {
 
-        let keys: Vec<(windows::core::GUID, *mut core::ffi::c_void)> = self.workspaces.keys().map(|k| (k.0, k.1)).collect();
+        let keys: Vec<(GUID, *mut core::ffi::c_void)> = self.workspaces.keys().map(|k| (k.0, k.1)).collect();
         
         for k in keys.iter() {
             
-            self.update_workspace(k.0, windows::Win32::Graphics::Gdi::HMONITOR(k.1));
+            self.update_workspace(k.0, HMONITOR(k.1));
         }
 
     }
 
-    fn swap_windows(&mut self, guid: windows::core::GUID, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, i: usize, j: usize) {
+    fn swap_windows(&mut self, guid: GUID, hmonitor: HMONITOR, i: usize, j: usize) {
 
         if i == j {
             
@@ -2027,7 +1953,7 @@ impl WindowManager {
 
     }
 
-    fn move_windows_across_monitors(&mut self, guid: windows::core::GUID, first_hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, second_hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, first_idx: usize, second_idx: usize) {
+    fn move_windows_across_monitors(&mut self, guid: GUID, first_hmonitor: HMONITOR, second_hmonitor: HMONITOR, first_idx: usize, second_idx: usize) {
 
         let hwnd = self.workspaces.get_mut(&(guid, first_hmonitor.0)).unwrap().managed_window_handles.remove(first_idx);
 
@@ -2064,41 +1990,41 @@ impl WindowManager {
 
     }
 
-    unsafe fn set_border_to_unfocused(&self, hwnd: windows::Win32::Foundation::HWND) {
+    unsafe fn set_border_to_unfocused(&self, hwnd: HWND) {
 
-        let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR, &self.settings.get_unfocused_border_colour() as *const windows::Win32::Foundation::COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.settings.get_unfocused_border_colour()) as u32);
-
-    }
-
-    unsafe fn set_border_to_focused(&self, hwnd: windows::Win32::Foundation::HWND) {
-
-        let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR, &self.settings.focused_border_colour as *const windows::Win32::Foundation::COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.settings.focused_border_colour) as u32);
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &self.settings.get_unfocused_border_colour() as *const COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.settings.get_unfocused_border_colour()) as u32);
 
     }
 
-    unsafe fn initialize_border(&self, hwnd: windows::Win32::Foundation::HWND) {
+    unsafe fn set_border_to_focused(&self, hwnd: HWND) {
+
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &self.settings.focused_border_colour as *const COLORREF as *const core::ffi::c_void, std::mem::size_of_val(&self.settings.focused_border_colour) as u32);
+
+    }
+
+    unsafe fn initialize_border(&self, hwnd: HWND) {
     
         let corner_preference = 
 
             if self.settings.disable_rounding {
 
-                windows::Win32::Graphics::Dwm::DWMWCP_DONOTROUND
+                DWMWCP_DONOTROUND
 
             }
 
             else {
 
-                windows::Win32::Graphics::Dwm::DWMWCP_DEFAULT
+                DWMWCP_DEFAULT
 
             };
 
-        let _ = windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd, windows::Win32::Graphics::Dwm::DWMWA_WINDOW_CORNER_PREFERENCE, &corner_preference as *const windows::Win32::Graphics::Dwm::DWM_WINDOW_CORNER_PREFERENCE as *const core::ffi::c_void, std::mem::size_of_val(&corner_preference) as u32);
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner_preference as *const DWM_WINDOW_CORNER_PREFERENCE as *const core::ffi::c_void, std::mem::size_of_val(&corner_preference) as u32);
 
         self.set_border_to_unfocused(hwnd);
 
     }
 
-    fn remove_hwnd(&mut self, guid: windows::core::GUID, hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, idx: usize) {
+    fn remove_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, idx: usize) {
 
         let workspace = match self.workspaces.get_mut(&(guid, hmonitor.0)) {
 
@@ -2126,7 +2052,7 @@ impl WindowManager {
 
     }
 
-    unsafe extern "system" fn event_handler(_hwineventhook: windows::Win32::UI::Accessibility::HWINEVENTHOOK, event: u32, hwnd: windows::Win32::Foundation::HWND, idobject: i32, _idchild: i32, _ideventthread: u32, _dwmseventtime: u32) {
+    unsafe extern "system" fn event_handler(_hwineventhook: HWINEVENTHOOK, event: u32, hwnd: HWND, idobject: i32, _idchild: i32, _ideventthread: u32, _dwmseventtime: u32) {
 
         if !has_sizebox(hwnd) {
 
@@ -2136,55 +2062,55 @@ impl WindowManager {
 
         match event {
 
-            windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_SHOW if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
+            EVENT_OBJECT_SHOW if idobject == OBJID_WINDOW.0 => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CREATED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
-
-            },
-
-            windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_DESTROY if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
-
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_DESTROYED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
+                PostMessageA(None, messages::WINDOW_CREATED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
 
             },
 
-            windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE => {
+            EVENT_OBJECT_DESTROY if idobject == OBJID_WINDOW.0 => {
+
+                PostMessageA(None, messages::WINDOW_DESTROYED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
+
+            },
+
+            EVENT_OBJECT_LOCATIONCHANGE => {
 
                 if is_restored(hwnd) {
 
-                    windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CREATED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
+                    PostMessageA(None, messages::WINDOW_CREATED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
 
                 }
 
                 else {
 
-                    windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
+                    PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
 
                 }
 
             },
             
-            windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_HIDE if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
+            EVENT_OBJECT_HIDE if idobject == OBJID_WINDOW.0 => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
+                PostMessageA(None, messages::WINDOW_MINIMIZED_OR_MAXIMIZED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
 
             },
 
-            windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_CLOAKED if idobject == windows::Win32::UI::WindowsAndMessaging::OBJID_WINDOW.0 => {
+            EVENT_OBJECT_CLOAKED if idobject == OBJID_WINDOW.0 => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_CLOAKED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
+                PostMessageA(None, messages::WINDOW_CLOAKED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
 
             },
         
-            windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND | windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_FOCUS => {
+            EVENT_SYSTEM_FOREGROUND | EVENT_OBJECT_FOCUS => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::FOREGROUND_WINDOW_CHANGED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
+                PostMessageA(None, messages::FOREGROUND_WINDOW_CHANGED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
 
             },
 
-            windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZEEND => {
+            EVENT_SYSTEM_MOVESIZEEND => {
 
-                windows::Win32::UI::WindowsAndMessaging::PostMessageA(None, messages::WINDOW_MOVE_FINISHED, windows::Win32::Foundation::WPARAM(hwnd.0 as usize), windows::Win32::Foundation::LPARAM::default()).unwrap();
+                PostMessageA(None, messages::WINDOW_MOVE_FINISHED, WPARAM(hwnd.0 as usize), LPARAM::default()).unwrap();
 
             },
 
@@ -2194,19 +2120,19 @@ impl WindowManager {
 
     }
 
-    unsafe extern "system" fn enum_windows_callback(hwnd: windows::Win32::Foundation::HWND, lparam: windows::Win32::Foundation::LPARAM) -> windows::Win32::Foundation::BOOL {
+    unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
 
         let wm = &mut *(lparam.0 as *mut WindowManager);
         
         let window_desktop_id = match wm.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
 
-            Ok(guid) if guid != windows::core::GUID::zeroed() => guid,
+            Ok(guid) if guid != GUID::zeroed() => guid,
             
             _ => return true.into(),
 
         };
 
-        let monitor_id = windows::Win32::Graphics::Gdi::MonitorFromWindow(hwnd, windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTONULL);
+        let monitor_id = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
 
         if monitor_id.is_invalid() {
 
@@ -2215,9 +2141,9 @@ impl WindowManager {
         }
 
         if 
-            !windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(hwnd).as_bool() ||
+            !IsWindowVisible(hwnd).as_bool() ||
             !has_sizebox(hwnd) ||
-            windows::Win32::UI::WindowsAndMessaging::IsIconic(hwnd).as_bool()
+            IsIconic(hwnd).as_bool()
         {
             
             return true.into();
@@ -2299,7 +2225,7 @@ impl WindowManager {
 
     }
 
-    unsafe extern "system" fn enum_display_monitors_callback(hmonitor: windows::Win32::Graphics::Gdi::HMONITOR, _hdc: windows::Win32::Graphics::Gdi::HDC, _hdc_monitor: *mut windows::Win32::Foundation::RECT, dw_data: windows::Win32::Foundation::LPARAM) -> windows::Win32::Foundation::BOOL {
+    unsafe extern "system" fn enum_display_monitors_callback(hmonitor: HMONITOR, _hdc: HDC, _hdc_monitor: *mut RECT, dw_data: LPARAM) -> BOOL {
 
         let wm = &mut *(dw_data.0 as *mut WindowManager);
 
@@ -2315,21 +2241,21 @@ impl WindowManager {
 
 }
 
-unsafe fn is_restored(hwnd: windows::Win32::Foundation::HWND) -> bool {
+unsafe fn is_restored(hwnd: HWND) -> bool {
     
     return
 
-        !windows::Win32::UI::WindowsAndMessaging::IsIconic(hwnd).as_bool() &&
-        !windows::Win32::UI::WindowsAndMessaging::IsZoomed(hwnd).as_bool() &&
-        !windows::Win32::UI::WindowsAndMessaging::IsWindowArranged(hwnd).as_bool() &&
-        windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(hwnd).as_bool()
+        !IsIconic(hwnd).as_bool() &&
+        !IsZoomed(hwnd).as_bool() &&
+        !IsWindowArranged(hwnd).as_bool() &&
+        IsWindowVisible(hwnd).as_bool()
 
         ;
 
 }
 
-unsafe fn has_sizebox(hwnd: windows::Win32::Foundation::HWND) -> bool {
+unsafe fn has_sizebox(hwnd: HWND) -> bool {
 
-    windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrA(hwnd, windows::Win32::UI::WindowsAndMessaging::GWL_STYLE) & windows::Win32::UI::WindowsAndMessaging::WS_SIZEBOX.0 as isize != 0
+    GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_SIZEBOX.0 as isize != 0
 
 }

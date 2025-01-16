@@ -1,3 +1,17 @@
+use windows::Win32::{
+
+    Foundation::*, 
+    
+    UI::{
+
+        Input::KeyboardAndMouse::*, 
+
+        WindowsAndMessaging::*
+
+    }
+
+};
+
 mod layout;
 mod wm;
 
@@ -39,81 +53,81 @@ mod hotkey_identifiers {
 
 unsafe fn register_hotkeys() {
     
-    let _focus_previous = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_PREVIOUS as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x4A);
+    let _focus_previous = RegisterHotKey(None, hotkey_identifiers::FOCUS_PREVIOUS as i32, MOD_ALT, 0x4A);
 
-    let _focus_next = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x4B);
+    let _focus_next = RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT as i32, MOD_ALT, 0x4B);
 
-    let _swap_previous = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_PREVIOUS as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x48);
+    let _swap_previous = RegisterHotKey(None, hotkey_identifiers::SWAP_PREVIOUS as i32, MOD_ALT, 0x48);
 
-    let _swap_next = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x4C);
+    let _swap_next = RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT as i32, MOD_ALT, 0x4C);
     
-    let _variant_previous = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::VARIANT_PREVIOUS as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT, 0x4A);
+    let _variant_previous = RegisterHotKey(None, hotkey_identifiers::VARIANT_PREVIOUS as i32, MOD_ALT | MOD_SHIFT, 0x4A);
 
-    let _variant_next = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::VARIANT_NEXT as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT, 0x4B);
+    let _variant_next = RegisterHotKey(None, hotkey_identifiers::VARIANT_NEXT as i32, MOD_ALT | MOD_SHIFT, 0x4B);
 
-    let _layout_previous = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::LAYOUT_PREVIOUS as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT, 0x48);
+    let _layout_previous = RegisterHotKey(None, hotkey_identifiers::LAYOUT_PREVIOUS as i32, MOD_ALT | MOD_SHIFT, 0x48);
 
-    let _layout_next = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::LAYOUT_NEXT as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT, 0x4C);
+    let _layout_next = RegisterHotKey(None, hotkey_identifiers::LAYOUT_NEXT as i32, MOD_ALT | MOD_SHIFT, 0x4C);
 
-    let _focus_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x55);
+    let _focus_previous_monitor = RegisterHotKey(None, hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32, MOD_ALT, 0x55);
 
-    let _focus_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x49);
+    let _focus_next_monitor = RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT_MONITOR as i32, MOD_ALT, 0x49);
 
-    let _swap_previous_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_PREVIOUS_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x59);
+    let _swap_previous_monitor = RegisterHotKey(None, hotkey_identifiers::SWAP_PREVIOUS_MONITOR as i32, MOD_ALT, 0x59);
 
-    let _swap_next_monitor = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT_MONITOR as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT, 0x4F);
+    let _swap_next_monitor = RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT_MONITOR as i32, MOD_ALT, 0x4F);
     
-    let _grab_window = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::GRAB_WINDOW as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x55);
+    let _grab_window = RegisterHotKey(None, hotkey_identifiers::GRAB_WINDOW as i32, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, 0x55);
 
-    let _release_window = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::RELEASE_WINDOW as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x49);
+    let _release_window = RegisterHotKey(None, hotkey_identifiers::RELEASE_WINDOW as i32, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, 0x49);
 
-    let _refresh_workspace = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::REFRESH_WORKSPACE as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x59);
+    let _refresh_workspace = RegisterHotKey(None, hotkey_identifiers::REFRESH_WORKSPACE as i32, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, 0x59);
 
-    let _toggle_workspace = windows::Win32::UI::Input::KeyboardAndMouse::RegisterHotKey(None, hotkey_identifiers::TOGGLE_WORKSPACE as i32, windows::Win32::UI::Input::KeyboardAndMouse::MOD_ALT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_SHIFT | windows::Win32::UI::Input::KeyboardAndMouse::MOD_NOREPEAT, 0x4F);
+    let _toggle_workspace = RegisterHotKey(None, hotkey_identifiers::TOGGLE_WORKSPACE as i32, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, 0x4F);
 
 }
 
-unsafe fn handle_message(msg: windows::Win32::UI::WindowsAndMessaging::MSG, wm: &mut wm::WindowManager) {
+unsafe fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
 
     match msg.message {
 
         wm::messages::WINDOW_CREATED => {
 
-            wm.window_created(windows::Win32::Foundation::HWND(msg.wParam.0 as *mut core::ffi::c_void));
+            wm.window_created(HWND(msg.wParam.0 as *mut core::ffi::c_void));
 
         },
 
         wm::messages::WINDOW_DESTROYED => {
 
-            wm.window_destroyed(windows::Win32::Foundation::HWND(msg.wParam.0 as *mut core::ffi::c_void));
+            wm.window_destroyed(HWND(msg.wParam.0 as *mut core::ffi::c_void));
 
         },
 
         wm::messages::WINDOW_MINIMIZED_OR_MAXIMIZED => {
 
-            wm.window_minimized_or_maximized(windows::Win32::Foundation::HWND(msg.wParam.0 as *mut core::ffi::c_void));
+            wm.window_minimized_or_maximized(HWND(msg.wParam.0 as *mut core::ffi::c_void));
 
         },
 
         wm::messages::WINDOW_CLOAKED => {
 
-            wm.window_cloaked(windows::Win32::Foundation::HWND(msg.wParam.0 as *mut core::ffi::c_void));
+            wm.window_cloaked(HWND(msg.wParam.0 as *mut core::ffi::c_void));
 
         },
 
         wm::messages::FOREGROUND_WINDOW_CHANGED => {
 
-            wm.foreground_window_changed(windows::Win32::Foundation::HWND(msg.wParam.0 as *mut core::ffi::c_void));
+            wm.foreground_window_changed(HWND(msg.wParam.0 as *mut core::ffi::c_void));
 
         },
 
         wm::messages::WINDOW_MOVE_FINISHED => {
 
-            wm.window_move_finished(windows::Win32::Foundation::HWND(msg.wParam.0 as *mut core::ffi::c_void));
+            wm.window_move_finished(HWND(msg.wParam.0 as *mut core::ffi::c_void));
 
         },
 
-        windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY => {
+        WM_HOTKEY => {
 
             match msg.wParam.0 {
                 
@@ -227,7 +241,7 @@ unsafe fn handle_message(msg: windows::Win32::UI::WindowsAndMessaging::MSG, wm: 
 
 fn main() {
 
-    let mut msg = windows::Win32::UI::WindowsAndMessaging::MSG::default();
+    let mut msg = MSG::default();
 
     unsafe {
 
@@ -239,7 +253,7 @@ fn main() {
 
         loop {
             
-            windows::Win32::UI::WindowsAndMessaging::GetMessageA(&mut msg, None, 0, 0);
+            GetMessageA(&mut msg, None, 0, 0);
 
             handle_message(msg, &mut wm);
 
