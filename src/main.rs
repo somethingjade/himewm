@@ -329,7 +329,9 @@ mod test {
 
             fourth_variant.swap_zones(1, 0, 1);
 
-            layout_group.move_variant(idx, 0);
+            layout_group.swap_variants(idx, 0);
+
+            println!("{}", layout_group.default_idx());
 
 
             let mut second_layout_group = super::layout::LayoutGroup::new(primary_hmonitor);

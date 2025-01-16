@@ -879,39 +879,33 @@ impl LayoutGroup {
 
     }
 
-    pub fn move_variant(&mut self, from: usize, to: usize) {
+    pub fn swap_variants(&mut self, i: usize, j: usize) {
 
-        let layout = self.layouts.remove(from);
+        if i == j {
 
-        self.layouts.insert(to, layout);
-
-        if from == self.default_idx {
-
-            self.default_idx = to;
+            return;
 
         }
 
-        else if
-            
-            from < self.default_idx &&
-            to > self.default_idx
-        
-        {
+        if self.default_idx == i {
 
-            self.default_idx -= 1;
+            self.default_idx = j;
 
         }
 
-        else if
+        else if self.default_idx == j {
 
-            from > self.default_idx &&
-            to <= self.default_idx
-
-        {
-
-            self.default_idx += 1;
+            self.default_idx = i;
 
         }
+
+        let first_idx = std::cmp::min(i, j);
+
+        let second_idx = std::cmp::max(i, j);
+
+        let (first_slice, second_slice) = self.layouts.split_at_mut(second_idx);
+
+        std::mem::swap(&mut first_slice[first_idx], &mut second_slice[0]);
 
     }
 
