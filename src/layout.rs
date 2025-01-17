@@ -82,7 +82,7 @@ impl RepeatingSplit {
 
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Zone {
     left: i32,
     top: i32,
@@ -101,6 +101,17 @@ impl Zone {
             bottom,
         }
 
+    }
+
+    fn from_rect(val: RECT) -> Self {
+
+        Zone {
+            left: val.left,
+            top: val.top,
+            right: val.right,
+            bottom: val.bottom,
+        }
+        
     }
 
     fn w(&self) -> i32 {
@@ -127,7 +138,7 @@ pub struct Position {
 
 #[derive(Clone, Debug)]
 pub struct Layout {
-    monitor_rect: RECT,
+    monitor_rect: Zone,
     zones: Vec<Vec<Zone>>,
     manual_zones_until: usize,
     end_tiling_behaviour: EndTilingBehaviour,
@@ -145,14 +156,14 @@ impl Layout {
         let _ = GetMonitorInfoA(hmonitor, &mut monitor_info);
 
         let mut ret = Layout {
-            monitor_rect: monitor_info.rcWork,
+            monitor_rect: Zone::from_rect(monitor_info.rcWork),
             zones: Vec::new(),
             manual_zones_until: 1,
             end_tiling_behaviour: EndTilingBehaviour::default_directional(),
             positions: Vec::new(),
         };
 
-        ret.zones.push(vec![Zone::new(ret.monitor_rect.left, ret.monitor_rect.top, ret.monitor_rect.right, ret.monitor_rect.bottom)]);
+        ret.zones.push(vec![ret.monitor_rect.clone()]);
 
         return ret;
     
@@ -803,7 +814,7 @@ impl LayoutGroup {
 
         GetMonitorInfoA(hmonitor, &mut monitor_info);
         
-        let monitor_rect = monitor_info.rcWork;
+        let monitor_rect = Zone::from_rect(monitor_info.rcWork);
 
         let layout = &layout_group.layouts[layout_group.default_idx];
 
@@ -853,19 +864,19 @@ impl LayoutGroup {
 
                     }
                     
-                    zone.left += monitor_rect.left;
+                    zone.left += (&monitor_rect).left;
 
-                    zone.top += monitor_rect.top;
+                    zone.top += (&monitor_rect).top;
 
-                    zone.right += monitor_rect.left;
+                    zone.right += (&monitor_rect).left;
 
-                    zone.bottom += monitor_rect.top;
+                    zone.bottom += (&monitor_rect).top;
 
                 }
 
             }
 
-            l.monitor_rect = monitor_rect;
+            l.monitor_rect = monitor_rect.clone();
 
         }
 

@@ -1724,7 +1724,6 @@ impl WindowManager {
 
         }
         
-        // TODO: destructure like this anything that can be destructured like this
         let (original_window_desktop_id, original_monitor_id, _, original_idx) = self.hwnd_locations.get(&self.grabbed_window.unwrap().0).unwrap().to_owned();
         
         if original_window_desktop_id != new_window_desktop_id {
@@ -1760,6 +1759,8 @@ impl WindowManager {
             }
 
         }
+
+        let _ = SetForegroundWindow(grabbed_window);
 
         self.grabbed_window = None;
 
