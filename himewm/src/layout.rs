@@ -1,3 +1,11 @@
+use serde::{
+
+    Deserialize,
+
+    Serialize
+
+};
+
 use windows::Win32::{
 
     Foundation::*, 
@@ -6,19 +14,19 @@ use windows::Win32::{
 
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Direction {
     Horizontal,
-    Vertical
+    Vertical,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SplitDirection {
     Horizontal(i32),
     Vertical(i32),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum EndTilingBehaviour {
     
     Directional {
@@ -59,7 +67,7 @@ impl EndTilingBehaviour {
 
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RepeatingSplit {
     direction: Direction,
     split_ratio: f64,
@@ -82,7 +90,7 @@ impl RepeatingSplit {
 
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Zone {
     left: i32,
     top: i32,
@@ -128,7 +136,7 @@ impl Zone {
 
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -136,7 +144,7 @@ pub struct Position {
     pub cy: i32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Layout {
     monitor_rect: Zone,
     zones: Vec<Vec<Zone>>,
@@ -749,7 +757,7 @@ impl Layout {
 
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LayoutGroup {
     layouts: Vec<Layout>,
     default_idx: usize,

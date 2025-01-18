@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use windows::Win32::{
 
     Foundation::*, 
@@ -8,12 +10,17 @@ use windows::Win32::{
 
         WindowsAndMessaging::*
 
-    }
+    },
+
+    System::Console::*
 
 };
 
 mod layout;
+
 mod wm;
+
+mod init;
 
 mod hotkey_identifiers {
 
@@ -241,15 +248,51 @@ unsafe fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
 
 fn main() {
 
+    // Maybe error handle this
+    let _create_dirs = init::create_dirs();
+    
+    let settings = init::initialize_settings();
+
     let mut msg = MSG::default();
 
     unsafe {
+        
+        let layout_groups = match init::initialize_layouts() {
+
+            Some(val) => val,
+        
+            None => {
+
+                let _free_console = FreeConsole();
+
+                let _alloc_console = AllocConsole();
+                
+                let handle = GetStdHandle(STD_INPUT_HANDLE).unwrap();
+                
+                let mut console_mode = CONSOLE_MODE::default();
+                
+                let _get_console_mode = GetConsoleMode(handle, &mut console_mode);
+
+                let _set_console_mode = SetConsoleMode(handle, console_mode & !ENABLE_ECHO_INPUT);
+
+                println!("No layouts found");
+                println!("Press ENTER to exit");
+
+                let mut buf = String::new();
+                
+                let _read_line = std::io::stdin().read_line(&mut buf);
+
+                return;
+
+            },
+        
+        };
 
         register_hotkeys();
 
-        let mut wm = wm::WindowManager::new();
+        let mut wm = wm::WindowManager::new(settings);
 
-        test::test(&mut wm);
+        wm.initialize(layout_groups);
 
         loop {
             
@@ -261,109 +304,4 @@ fn main() {
 
     }
 
-}
-
-mod test {
-    
-    pub unsafe fn test(wm: &mut crate::wm::WindowManager) {
-
-            
-
-            wm.initialize_monitors();
-
-            let primary_hmonitor = wm.get_monitor_vec()[0];
-
-            let mut layout_group = super::layout::LayoutGroup::new(primary_hmonitor);
-
-            let mut idx = layout_group.default_idx();
-
-            let layout = &mut layout_group.get_layouts_mut()[idx];
-
-            let end_tiling_behaviour = super::layout::EndTilingBehaviour::default_repeating();
-
-
-            layout.set_end_tiling_behaviour(end_tiling_behaviour);
-            layout.new_zone_vec();
-            layout.split(1, 0, super::layout::SplitDirection::Vertical(960));
-
-            layout.add_repeating_split(super::layout::Direction::Horizontal, 0.5, 4, false);
-            layout.add_repeating_split(super::layout::Direction::Vertical, 0.5, 1, true);
-            layout.add_repeating_split(super::layout::Direction::Horizontal, 0.5, 2, true);
-            layout.add_repeating_split(super::layout::Direction::Vertical, 0.5, 3, false);
-            
-
-            //layout.new_zone_vec();
-            //layout.split(1, 0, super::layout::SplitDirection::Vertical(960));
-            //layout.new_zone_vec_from(1);
-            //layout.split(2, 1, super::layout::SplitDirection::Horizontal(600));
-            //
-            //layout.set_end_tiling_direction(super::layout::Direction::Vertical);
-            
-            
-
-            layout_group.new_variant();
-
-            idx = layout_group.layouts_len() - 1;
-
-            let second_variant = &mut layout_group.get_layouts_mut()[idx];
-
-            second_variant.merge_zones(1, 0, 1);
-
-            second_variant.split(1, 0, super::layout::SplitDirection::Vertical(1280));
-            layout_group.new_variant();
-            idx = layout_group.layouts_len() - 1;
-
-            let third_variant = &mut layout_group.get_layouts_mut()[idx];
-
-            third_variant.merge_zones(1, 0, 1);
-
-            third_variant.split(1, 0, super::layout::SplitDirection::Vertical(1440));
-            layout_group.new_variant();
-            idx = layout_group.layouts_len() - 1;
-
-            let fourth_variant = &mut layout_group.get_layouts_mut()[idx];
-
-            fourth_variant.merge_zones(1, 0, 1);
-
-            fourth_variant.split(1, 0, super::layout::SplitDirection::Vertical(640));
-
-            fourth_variant.swap_zones(1, 0, 1);
-
-            layout_group.swap_variants(idx, 0);
-
-            println!("{}", layout_group.default_idx());
-
-
-            let mut second_layout_group = super::layout::LayoutGroup::new(primary_hmonitor);
-
-            idx = second_layout_group.default_idx();
-
-            let l2 = &mut second_layout_group.get_layouts_mut()[idx];
-
-
-            l2.set_end_tiling_direction(super::layout::Direction::Vertical);
-
-            l2.set_end_tiling_start_from(3);
-
-            l2.new_zone_vec();
-
-            l2.split(1, 0, super::layout::SplitDirection::Vertical(960));
-
-            l2.new_zone_vec_from(1);
-
-            l2.split(2, 1, super::layout::SplitDirection::Horizontal(600));
-
-            l2.new_zone_vec();
-
-            l2.split(3, 0, super::layout::SplitDirection::Horizontal(600));
-
-            wm.get_settings_mut().set_disable_rounding(true);
-            wm.get_settings_mut().set_disable_unfocused_border(true);
-            wm.get_settings_mut().set_window_padding(12);
-            wm.get_settings_mut().set_edge_padding(24);
-
-            wm.initialize_with_layout_group(layout_group);
-            wm.add_layout_group(second_layout_group);
-
-    }
 }
