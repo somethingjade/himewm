@@ -71,6 +71,7 @@ impl Workspace {
 
 #[derive(Debug)]
 pub struct Settings {
+    default_layout_idx: usize,
     window_padding: i32,
     edge_padding: i32,
     disable_rounding: bool,
@@ -83,6 +84,7 @@ impl Default for Settings {
     fn default() -> Self {
     
         Settings {
+            default_layout_idx: 0,
             window_padding: 0,
             edge_padding: 0,
             disable_rounding: false,
@@ -94,6 +96,18 @@ impl Default for Settings {
 }
 
 impl Settings {
+
+    pub fn get_default_layout_idx(&self) -> usize {
+
+        self.default_layout_idx
+
+    }
+
+    pub fn set_default_layout_idx(&mut self, val: usize) {
+
+        self.default_layout_idx = val;
+
+    }
 
     pub fn get_window_padding(&self) -> i32 {
 
@@ -176,13 +190,12 @@ impl Settings {
 pub struct WindowManager {
     virtual_desktop_manager: IVirtualDesktopManager,
     event_hook: HWINEVENTHOOK,
-    hmonitor_default_layout_indices: std::collections::HashMap<*mut core::ffi::c_void, usize>,
+    hmonitors: Vec<HMONITOR>,
     hwnd_locations: std::collections::HashMap<*mut core::ffi::c_void, (GUID, HMONITOR, bool, usize)>, 
     workspaces: std::collections::HashMap<(GUID, *mut core::ffi::c_void), Workspace>,
     foreground_hwnd: Option<HWND>,
     layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<crate::layout::LayoutGroup>>,
     settings: Settings,
-    ordered_hmonitors: Vec<HMONITOR>,
     grabbed_window: Option<HWND>,
     ignored_combinations: std::collections::HashSet<(GUID, *mut core::ffi::c_void)>,
     ignored_hwnds: std::collections::HashSet<*mut core::ffi::c_void>,
@@ -197,13 +210,12 @@ impl WindowManager {
         WindowManager {
             virtual_desktop_manager: CoCreateInstance(&VirtualDesktopManager, None, CLSCTX_INPROC_SERVER).unwrap(),
             event_hook: SetWinEventHook(EVENT_MIN, EVENT_MAX, None, Some(Self::event_handler), 0, 0, WINEVENT_OUTOFCONTEXT),
-            hmonitor_default_layout_indices: std::collections::HashMap::new(),
+            hmonitors: Vec::new(),
             hwnd_locations: std::collections::HashMap::new(),
             workspaces: std::collections::HashMap::new(),
             foreground_hwnd: None,
             layouts: std::collections::HashMap::new(),
             settings: Settings::default(),
-            ordered_hmonitors: Vec::new(),
             grabbed_window: None,
             ignored_combinations: std::collections::HashSet::new(),
             ignored_hwnds: std::collections::HashSet::new(),
@@ -252,12 +264,6 @@ impl WindowManager {
 
     }
 
-    pub fn set_default_layout_idx(&mut self, hmonitor: HMONITOR, idx: usize) {
-
-        *self.hmonitor_default_layout_indices.get_mut(&hmonitor.0).unwrap() = idx;
-
-    }
-
     pub unsafe fn add_layout_group(&mut self, layout_group: crate::layout::LayoutGroup) {
         
         for (hmonitor, layouts) in self.layouts.iter_mut() {
@@ -292,7 +298,7 @@ impl WindowManager {
 
     pub fn get_monitor_vec(&self) -> &Vec<HMONITOR> {
         
-        &self.ordered_hmonitors
+        &self.hmonitors
 
     }
 
@@ -332,9 +338,7 @@ impl WindowManager {
                     
                     None => {
 
-                        let layout_idx = self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
-
-                        self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                        self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, self.settings.default_layout_idx, self.layouts.get(&monitor_id.0).unwrap()[self.settings.default_layout_idx].default_idx()));
                         
                     },
                 
@@ -405,9 +409,7 @@ impl WindowManager {
 
                         if is_restored(hwnd) {
 
-                            let layout_idx = self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
-
-                            self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                            self.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, self.settings.default_layout_idx, self.layouts.get(&monitor_id.0).unwrap()[self.settings.default_layout_idx].default_idx()));
                         
                             self.hwnd_locations.insert(hwnd.0, (window_desktop_id, monitor_id, false, 0));
 
@@ -568,9 +570,7 @@ impl WindowManager {
 
                 None => {
 
-                    let layout_idx = self.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
-
-                    self.workspaces.insert((new_window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                    self.workspaces.insert((new_window_desktop_id, monitor_id.0), Workspace::new(hwnd, self.settings.default_layout_idx, self.layouts.get(&monitor_id.0).unwrap()[self.settings.default_layout_idx].default_idx()));
 
                     new_idx = 0;
 
@@ -732,9 +732,7 @@ impl WindowManager {
 
                     self.workspaces.get_mut(&(window_desktop_id, original_monitor_id.0)).unwrap().managed_window_handles.remove(idx);
 
-                    let layout_idx = self.hmonitor_default_layout_indices.get(&new_monitor_id.0).unwrap();
-
-                    self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(hwnd, *layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                    self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(hwnd, self.settings.default_layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[self.settings.default_layout_idx].default_idx()));
 
                     location.1 = new_monitor_id;
 
@@ -1282,7 +1280,7 @@ impl WindowManager {
 
     pub unsafe fn focus_previous_monitor(&self) {
 
-        if self.ordered_hmonitors.len() <= 1 {
+        if self.hmonitors.len() <= 1 {
 
             return;
 
@@ -1306,11 +1304,11 @@ impl WindowManager {
 
         let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
-        let mut idx = self.ordered_hmonitors.len();
+        let mut idx = self.hmonitors.len();
 
-        for i in 0..self.ordered_hmonitors.len() {
+        for i in 0..self.hmonitors.len() {
 
-            if self.ordered_hmonitors[i] == monitor_id {
+            if self.hmonitors[i] == monitor_id {
 
                 idx = i;
 
@@ -1318,7 +1316,7 @@ impl WindowManager {
 
         }
 
-        if idx == self.ordered_hmonitors.len() {
+        if idx == self.hmonitors.len() {
 
             return;
 
@@ -1326,7 +1324,7 @@ impl WindowManager {
 
         else if idx == 0 {
 
-            idx = self.ordered_hmonitors.len() - 1;
+            idx = self.hmonitors.len() - 1;
 
         }
 
@@ -1336,7 +1334,7 @@ impl WindowManager {
 
         }
 
-        let workspace = match self.workspaces.get(&(window_desktop_id, self.ordered_hmonitors[idx].0)) {
+        let workspace = match self.workspaces.get(&(window_desktop_id, self.hmonitors[idx].0)) {
         
             Some(val) if val.managed_window_handles.len() != 0 => val,
 
@@ -1350,7 +1348,7 @@ impl WindowManager {
 
     pub unsafe fn focus_next_monitor(&self) {
 
-        if self.ordered_hmonitors.len() <= 1 {
+        if self.hmonitors.len() <= 1 {
 
             return;
 
@@ -1374,11 +1372,11 @@ impl WindowManager {
         
         let (window_desktop_id, monitor_id, _, _) = location.to_owned();
 
-        let mut idx = self.ordered_hmonitors.len();
+        let mut idx = self.hmonitors.len();
 
-        for i in 0..self.ordered_hmonitors.len() {
+        for i in 0..self.hmonitors.len() {
 
-            if self.ordered_hmonitors[i] == monitor_id {
+            if self.hmonitors[i] == monitor_id {
 
                 idx = i;
 
@@ -1386,13 +1384,13 @@ impl WindowManager {
 
         }
 
-        if idx == self.ordered_hmonitors.len() {
+        if idx == self.hmonitors.len() {
 
             return;
 
         }
 
-        else if idx == self.ordered_hmonitors.len() - 1 {
+        else if idx == self.hmonitors.len() - 1 {
 
             idx = 0;
 
@@ -1404,7 +1402,7 @@ impl WindowManager {
 
         }
 
-        let workspace = match self.workspaces.get(&(window_desktop_id, self.ordered_hmonitors[idx].0)) {
+        let workspace = match self.workspaces.get(&(window_desktop_id, self.hmonitors[idx].0)) {
         
             Some(val) if val.managed_window_handles.len() != 0 => val,
 
@@ -1418,7 +1416,7 @@ impl WindowManager {
 
     pub unsafe fn swap_previous_monitor(&mut self) {
 
-        if self.ordered_hmonitors.len() <= 1 {
+        if self.hmonitors.len() <= 1 {
 
             return;
 
@@ -1450,11 +1448,11 @@ impl WindowManager {
 
         }
 
-        let mut hmonitor_idx = self.ordered_hmonitors.len();
+        let mut hmonitor_idx = self.hmonitors.len();
 
-        for i in 0..self.ordered_hmonitors.len() {
+        for i in 0..self.hmonitors.len() {
 
-            if self.ordered_hmonitors[i] == original_monitor_id {
+            if self.hmonitors[i] == original_monitor_id {
 
                 hmonitor_idx = i;
 
@@ -1464,7 +1462,7 @@ impl WindowManager {
 
         let mut new_monitor_id = HMONITOR::default();
 
-        if hmonitor_idx == self.ordered_hmonitors.len() {
+        if hmonitor_idx == self.hmonitors.len() {
 
             return;
 
@@ -1472,9 +1470,9 @@ impl WindowManager {
 
         else {
 
-            for i in 0..self.ordered_hmonitors.len() {
+            for i in 0..self.hmonitors.len() {
 
-                if i == self.ordered_hmonitors.len() - 1 {
+                if i == self.hmonitors.len() - 1 {
 
                     return;
 
@@ -1482,7 +1480,7 @@ impl WindowManager {
 
                 if hmonitor_idx == 0 {
 
-                    hmonitor_idx = self.ordered_hmonitors.len() - 1;
+                    hmonitor_idx = self.hmonitors.len() - 1;
 
                 }
 
@@ -1492,7 +1490,7 @@ impl WindowManager {
 
                 }
 
-                new_monitor_id = self.ordered_hmonitors[hmonitor_idx];
+                new_monitor_id = self.hmonitors[hmonitor_idx];
 
                 if !self.ignored_combinations.contains(&(window_desktop_id, new_monitor_id.0)) {
 
@@ -1516,9 +1514,7 @@ impl WindowManager {
                 
                 self.remove_hwnd(window_desktop_id, original_monitor_id, original_window_idx);
 
-                let layout_idx = self.hmonitor_default_layout_indices.get(&new_monitor_id.0).unwrap();
-
-                self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(foreground_hwnd, *layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(foreground_hwnd, self.settings.default_layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[self.settings.default_layout_idx].default_idx()));
 
                 let location_mut = self.hwnd_locations.get_mut(&foreground_hwnd.0).unwrap();
 
@@ -1544,7 +1540,7 @@ impl WindowManager {
 
     pub unsafe fn swap_next_monitor(&mut self) {
 
-        if self.ordered_hmonitors.len() <= 1 {
+        if self.hmonitors.len() <= 1 {
 
             return;
 
@@ -1576,11 +1572,11 @@ impl WindowManager {
 
         }
 
-        let mut hmonitor_idx = self.ordered_hmonitors.len();
+        let mut hmonitor_idx = self.hmonitors.len();
 
-        for i in 0..self.ordered_hmonitors.len() {
+        for i in 0..self.hmonitors.len() {
 
-            if self.ordered_hmonitors[i] == original_monitor_id {
+            if self.hmonitors[i] == original_monitor_id {
 
                 hmonitor_idx = i;
 
@@ -1590,7 +1586,7 @@ impl WindowManager {
 
         let mut new_monitor_id = HMONITOR::default();
 
-        if hmonitor_idx == self.ordered_hmonitors.len() {
+        if hmonitor_idx == self.hmonitors.len() {
 
             return;
 
@@ -1598,15 +1594,15 @@ impl WindowManager {
 
         else {
 
-            for i in 0..self.ordered_hmonitors.len() {
+            for i in 0..self.hmonitors.len() {
 
-                if i == self.ordered_hmonitors.len() - 1 {
+                if i == self.hmonitors.len() - 1 {
 
                     return;
 
                 }
 
-                if hmonitor_idx == self.ordered_hmonitors.len() - 1 {
+                if hmonitor_idx == self.hmonitors.len() - 1 {
 
                     hmonitor_idx = 0;
 
@@ -1618,7 +1614,7 @@ impl WindowManager {
 
                 }
 
-                new_monitor_id = self.ordered_hmonitors[hmonitor_idx];
+                new_monitor_id = self.hmonitors[hmonitor_idx];
 
                 if !self.ignored_combinations.contains(&(window_desktop_id, new_monitor_id.0)) {
 
@@ -1642,9 +1638,7 @@ impl WindowManager {
                 
                 self.remove_hwnd(window_desktop_id, original_monitor_id, original_window_idx);
 
-                let layout_idx = self.hmonitor_default_layout_indices.get(&new_monitor_id.0).unwrap();
-
-                self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(foreground_hwnd, *layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                self.workspaces.insert((window_desktop_id, new_monitor_id.0), Workspace::new(foreground_hwnd, self.settings.default_layout_idx, self.layouts.get(&new_monitor_id.0).unwrap()[self.settings.default_layout_idx].default_idx()));
 
                 let location_mut = self.hwnd_locations.get_mut(&foreground_hwnd.0).unwrap();
 
@@ -2189,9 +2183,7 @@ impl WindowManager {
 
                 if is_restored(hwnd) {
 
-                    let layout_idx = wm.hmonitor_default_layout_indices.get(&monitor_id.0).unwrap();
-
-                    wm.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, *layout_idx, wm.layouts.get(&monitor_id.0).unwrap()[*layout_idx].default_idx()));
+                    wm.workspaces.insert((window_desktop_id, monitor_id.0), Workspace::new(hwnd, wm.settings.default_layout_idx, wm.layouts.get(&monitor_id.0).unwrap()[wm.settings.default_layout_idx].default_idx()));
 
                     for (guid, hmonitor, _, i) in wm.hwnd_locations.values_mut() {
 
@@ -2230,9 +2222,7 @@ impl WindowManager {
 
         let wm = &mut *(dw_data.0 as *mut WindowManager);
 
-        wm.hmonitor_default_layout_indices.insert(hmonitor.0, 0);
-
-        wm.ordered_hmonitors.push(hmonitor);
+        wm.hmonitors.push(hmonitor);
         
         wm.layouts.insert(hmonitor.0, Vec::new());
 
