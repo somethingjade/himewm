@@ -246,6 +246,29 @@ unsafe fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
 
 }
 
+unsafe fn show_message(message: &str) {
+
+    let _free_console = FreeConsole();
+
+    let _alloc_console = AllocConsole();
+    
+    let handle = GetStdHandle(STD_INPUT_HANDLE).unwrap();
+    
+    let mut console_mode = CONSOLE_MODE::default();
+    
+    let _get_console_mode = GetConsoleMode(handle, &mut console_mode);
+
+    let _set_console_mode = SetConsoleMode(handle, console_mode & !ENABLE_ECHO_INPUT);
+
+    println!("{}", message);
+    println!("Press ENTER to exit");
+
+    let mut buf = String::new();
+    
+    let _read_line = std::io::stdin().read_line(&mut buf);
+    
+}
+
 fn main() {
 
     // Maybe error handle this
@@ -262,25 +285,8 @@ fn main() {
             Some(val) => val,
         
             None => {
-
-                let _free_console = FreeConsole();
-
-                let _alloc_console = AllocConsole();
                 
-                let handle = GetStdHandle(STD_INPUT_HANDLE).unwrap();
-                
-                let mut console_mode = CONSOLE_MODE::default();
-                
-                let _get_console_mode = GetConsoleMode(handle, &mut console_mode);
-
-                let _set_console_mode = SetConsoleMode(handle, console_mode & !ENABLE_ECHO_INPUT);
-
-                println!("No layouts found");
-                println!("Press ENTER to exit");
-
-                let mut buf = String::new();
-                
-                let _read_line = std::io::stdin().read_line(&mut buf);
+                show_message("No layouts found");
 
                 return;
 
