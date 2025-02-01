@@ -2,7 +2,6 @@ use himewm_layout::*;
 
 #[test]
 fn show_layout() {
-
     let mut layout_group = LayoutGroup::new(1920, 1200);
 
     let idx = layout_group.default_idx();
@@ -22,12 +21,9 @@ fn show_layout() {
     let new_variant = &mut layout_group.get_layouts_mut()[1];
 
     for _i in 0..2 {
-
         new_variant.delete_zones(1);
-
     }
 
-    
     new_variant.new_zone_vec();
 
     new_variant.split(1, 0, SplitDirection::Vertical(960));
@@ -48,5 +44,4 @@ fn show_layout() {
     gui.edit_layout(layout_group);
 
     gui.run();
-
 }
