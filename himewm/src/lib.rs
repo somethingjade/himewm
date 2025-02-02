@@ -804,15 +804,21 @@ impl WindowManager {
         }
 
         match direction {
-            CycleDirection::Previous if workspace.variant_idx != 0 => {
-                workspace.variant_idx -= 1;
+            CycleDirection::Previous => {
+                if workspace.variant_idx != 0 {
+                    workspace.variant_idx -= 1;
+                } else {
+                    workspace.variant_idx = layouts_len - 1;
+                }
             }
 
-            CycleDirection::Next if workspace.variant_idx != layouts_len - 1 => {
-                workspace.variant_idx += 1;
+            CycleDirection::Next => {
+                if workspace.variant_idx != layouts_len - 1 {
+                    workspace.variant_idx += 1;
+                } else {
+                    workspace.variant_idx = 0;
+                }
             }
-
-            _ => return,
         }
 
         self.update_workspace(desktop_id, monitor_handle);
