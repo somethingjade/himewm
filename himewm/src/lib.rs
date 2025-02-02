@@ -1166,17 +1166,23 @@ impl WindowManager {
             return;
         }
 
+        let was_ignored = if self.ignored_windows.remove(&grabbed_window.0) {
+            let original_window_info = self
+                .window_info
+                .get_mut(&self.grabbed_window.unwrap().0)
+                .unwrap();
+
+            original_window_info.restored = true;
+
+            let _ = ShowWindow(grabbed_window, SW_RESTORE);
+
+            true
+        } else {
+            false
+        };
+
         if original_monitor_handle == new_monitor_handle {
-            if self.ignored_windows.remove(&grabbed_window.0) {
-                let original_window_info = self
-                    .window_info
-                    .get_mut(&self.grabbed_window.unwrap().0)
-                    .unwrap();
-
-                original_window_info.restored = true;
-
-                let _ = ShowWindow(grabbed_window, SW_RESTORE);
-
+            if was_ignored {
                 self.insert_hwnd(
                     original_desktop_id,
                     original_monitor_handle,
@@ -1194,7 +1200,7 @@ impl WindowManager {
 
             self.update_workspace(original_desktop_id, original_monitor_handle);
         } else {
-            if self.ignored_windows.remove(&grabbed_window.0) {
+            if was_ignored {
                 self.insert_hwnd(
                     original_desktop_id,
                     new_monitor_handle,
@@ -1267,9 +1273,36 @@ impl WindowManager {
 
         if self.ignored_windows.remove(&foreground_window.0) {
             if restored {
+                let original_dpi = GetDpiForWindow(foreground_window);
+
                 self.insert_hwnd(desktop_id, monitor_handle, idx, foreground_window);
 
                 self.update_workspace(desktop_id, monitor_handle);
+
+                if GetDpiForWindow(foreground_window) != original_dpi {
+                    let workspace = self
+                        .workspaces
+                        .get(&(desktop_id, monitor_handle.0))
+                        .unwrap();
+
+                    let layout = &self.layouts.get(&monitor_handle.0).unwrap()
+                        [workspace.layout_idx]
+                        .get_layouts()[workspace.variant_idx];
+
+                    let position = &layout
+                        .get_positions_at(workspace.managed_window_handles.len() - 1)
+                        [workspace.managed_window_handles.len() - 1];
+
+                    let _ = SetWindowPos(
+                        foreground_window,
+                        None,
+                        position.x,
+                        position.y,
+                        position.cx,
+                        position.cy,
+                        SWP_NOZORDER,
+                    );
+                }
             }
         } else {
             self.ignored_windows.insert(foreground_window.0);
