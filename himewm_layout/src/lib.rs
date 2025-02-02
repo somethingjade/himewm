@@ -32,7 +32,7 @@ pub enum EndTilingBehaviour {
 impl EndTilingBehaviour {
     pub fn default_directional() -> Self {
         EndTilingBehaviour::Directional {
-            direction: Direction::Horizontal,
+            direction: Direction::Vertical,
             start_from: 1,
             from_zones: None,
             zone_idx: 0,
@@ -419,18 +419,6 @@ impl Layout {
 
         match direction {
             SplitDirection::Horizontal(at) => {
-                if at - zone.top < zone.h() / 2 {
-                    new_zone = Zone::new(zone.left, zone.top, zone.right, at);
-
-                    zone.top = at;
-                } else {
-                    new_zone = Zone::new(zone.left, at, zone.right, zone.bottom);
-
-                    zone.bottom = at;
-                }
-            }
-
-            SplitDirection::Vertical(at) => {
                 if at - zone.left < zone.w() / 2 {
                     new_zone = Zone::new(zone.left, zone.top, at, zone.bottom);
 
@@ -439,6 +427,18 @@ impl Layout {
                     new_zone = Zone::new(at, zone.top, zone.right, zone.bottom);
 
                     zone.right = at;
+                }
+            }
+
+            SplitDirection::Vertical(at) => {
+                if at - zone.top < zone.h() / 2 {
+                    new_zone = Zone::new(zone.left, zone.top, zone.right, at);
+
+                    zone.top = at;
+                } else {
+                    new_zone = Zone::new(zone.left, at, zone.right, zone.bottom);
+
+                    zone.bottom = at;
                 }
             }
         }
@@ -560,24 +560,6 @@ impl Layout {
 
                 match direction {
                     Direction::Horizontal => {
-                        let offset = (self.zones[self.zones.len() - 1][zone_idx].h())
-                            / (self.zones.len() - self.zones[self.zones.len() - 1].len() + 1)
-                                as i32;
-
-                        while self.zones[self.zones.len() - 1].len() < self.zones.len() {
-                            self.split(
-                                self.zones.len() - 1,
-                                zone_idx,
-                                SplitDirection::Horizontal(
-                                    self.zones[self.zones.len() - 1][zone_idx].top + offset,
-                                ),
-                            );
-
-                            self.set_end_zone_idx(end_zone_idx);
-                        }
-                    }
-
-                    Direction::Vertical => {
                         let offset = (self.zones[self.zones.len() - 1][zone_idx].w())
                             / (self.zones.len() - self.zones[self.zones.len() - 1].len() + 1)
                                 as i32;
@@ -586,8 +568,26 @@ impl Layout {
                             self.split(
                                 self.zones.len() - 1,
                                 zone_idx,
-                                SplitDirection::Vertical(
+                                SplitDirection::Horizontal(
                                     self.zones[self.zones.len() - 1][zone_idx].left + offset,
+                                ),
+                            );
+
+                            self.set_end_zone_idx(end_zone_idx);
+                        }
+                    }
+
+                    Direction::Vertical => {
+                        let offset = (self.zones[self.zones.len() - 1][zone_idx].h())
+                            / (self.zones.len() - self.zones[self.zones.len() - 1].len() + 1)
+                                as i32;
+
+                        while self.zones[self.zones.len() - 1].len() < self.zones.len() {
+                            self.split(
+                                self.zones.len() - 1,
+                                zone_idx,
+                                SplitDirection::Vertical(
+                                    self.zones[self.zones.len() - 1][zone_idx].top + offset,
                                 ),
                             );
 
@@ -633,9 +633,9 @@ impl Layout {
 
                     match split.direction {
                         Direction::Horizontal => {
-                            at = self.zones[self.zones.len() - 1][split_idx].top
+                            at = self.zones[self.zones.len() - 1][split_idx].left
                                 + (split.split_ratio
-                                    * (self.zones[self.zones.len() - 1][split_idx].h() as f64))
+                                    * (self.zones[self.zones.len() - 1][split_idx].w() as f64))
                                     .round() as i32;
 
                             self.split(
@@ -646,9 +646,9 @@ impl Layout {
                         }
 
                         Direction::Vertical => {
-                            at = self.zones[self.zones.len() - 1][split_idx].left
+                            at = self.zones[self.zones.len() - 1][split_idx].top
                                 + (split.split_ratio
-                                    * (self.zones[self.zones.len() - 1][split_idx].w() as f64))
+                                    * (self.zones[self.zones.len() - 1][split_idx].h() as f64))
                                     .round() as i32;
 
                             self.split(

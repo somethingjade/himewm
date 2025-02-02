@@ -16,7 +16,7 @@ fn create_vertical_stack() {
         current_variant.split(
             1,
             0,
-            SplitDirection::Vertical((1920 as f64 * (n as f64 / 6 as f64)) as i32),
+            SplitDirection::Horizontal((1920 as f64 * (n as f64 / 6 as f64)) as i32),
         );
 
         if n < 3 {
@@ -49,10 +49,10 @@ fn create_spiral() {
 
     current_variant.set_end_tiling_behaviour(EndTilingBehaviour::default_repeating());
 
-    current_variant.add_repeating_split(Direction::Horizontal, 0.5, 4, false);
-    current_variant.add_repeating_split(Direction::Vertical, 0.5, 1, true);
-    current_variant.add_repeating_split(Direction::Horizontal, 0.5, 2, true);
-    current_variant.add_repeating_split(Direction::Vertical, 0.5, 3, false);
+    current_variant.add_repeating_split(Direction::Vertical, 0.5, 4, false);
+    current_variant.add_repeating_split(Direction::Horizontal, 0.5, 1, true);
+    current_variant.add_repeating_split(Direction::Vertical, 0.5, 2, true);
+    current_variant.add_repeating_split(Direction::Horizontal, 0.5, 3, false);
 
     current_variant.new_zone_vec();
 
@@ -60,7 +60,7 @@ fn create_spiral() {
         current_variant.split(
             1,
             0,
-            SplitDirection::Vertical((1920 as f64 * (n as f64 / 6 as f64)) as i32),
+            SplitDirection::Horizontal((1920 as f64 * (n as f64 / 6 as f64)) as i32),
         );
 
         if n < 3 {
@@ -93,7 +93,7 @@ fn create_horizontal_stack_starting_at_3() {
 
     current_variant.set_end_tiling_start_from(3);
 
-    current_variant.set_end_tiling_direction(Direction::Vertical);
+    current_variant.set_end_tiling_direction(Direction::Horizontal);
 
     current_variant.new_zone_vec();
 
@@ -103,7 +103,7 @@ fn create_horizontal_stack_starting_at_3() {
                 current_variant.split(
                     1,
                     0,
-                    SplitDirection::Vertical((1920 as f64 * (n as f64 / 6 as f64)) as i32),
+                    SplitDirection::Horizontal((1920 as f64 * (n as f64 / 6 as f64)) as i32),
                 );
 
                 current_variant.swap_zones(1, 0, 1);
@@ -114,7 +114,7 @@ fn create_horizontal_stack_starting_at_3() {
                     1,
                     0,
                     1,
-                    SplitDirection::Vertical((1920 as f64 * (n as f64 / 6 as f64)) as i32),
+                    SplitDirection::Horizontal((1920 as f64 * (n as f64 / 6 as f64)) as i32),
                 );
 
                 current_variant.swap_zones(1, 0, 1);
@@ -125,7 +125,7 @@ fn create_horizontal_stack_starting_at_3() {
                     1,
                     0,
                     1,
-                    SplitDirection::Vertical((1920 as f64 * (n as f64 / 6 as f64)) as i32),
+                    SplitDirection::Horizontal((1920 as f64 * (n as f64 / 6 as f64)) as i32),
                 );
             }
         }
@@ -142,11 +142,11 @@ fn create_horizontal_stack_starting_at_3() {
     for variant in layout_group.get_layouts_mut() {
         variant.new_zone_vec_from(1);
 
-        variant.split(2, 1, SplitDirection::Horizontal(600));
+        variant.split(2, 1, SplitDirection::Vertical(600));
 
         variant.new_zone_vec();
 
-        variant.split(3, 0, SplitDirection::Horizontal(600));
+        variant.split(3, 0, SplitDirection::Vertical(600));
     }
 
     layout_group.set_default_idx(2);
