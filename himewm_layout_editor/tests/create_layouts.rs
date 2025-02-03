@@ -140,7 +140,7 @@ fn create_horizontal_stack_starting_at_3() {
     }
 
     for variant in layout_group.get_layouts_mut() {
-        variant.new_zone_vec_from(1);
+        variant.clone_zone_vec(1);
 
         variant.split(2, 1, SplitDirection::Vertical(600));
 

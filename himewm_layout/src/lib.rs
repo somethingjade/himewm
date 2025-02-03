@@ -406,7 +406,7 @@ impl Layout {
         self.manual_zones_until += 1;
     }
 
-    pub fn new_zone_vec_from(&mut self, i: usize) {
+    pub fn clone_zone_vec(&mut self, i: usize) {
         self.zones.push(self.zones[i].clone());
 
         self.manual_zones_until += 1;

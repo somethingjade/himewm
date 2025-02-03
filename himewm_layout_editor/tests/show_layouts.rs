@@ -12,7 +12,7 @@ fn show_layout() {
 
     variant.split(1, 0, SplitDirection::Vertical(960));
 
-    variant.new_zone_vec_from(1);
+    variant.clone_zone_vec(1);
 
     variant.split(2, 1, SplitDirection::Horizontal(600));
 
@@ -33,10 +33,10 @@ fn show_layout() {
     new_variant.split(2, 0, SplitDirection::Horizontal(600));
     new_variant.split(2, 1, SplitDirection::Vertical(960));
 
-    new_variant.new_zone_vec_from(2);
+    new_variant.clone_zone_vec(2);
     new_variant.split(3, 0, SplitDirection::Vertical(1280));
 
-    new_variant.new_zone_vec_from(3);
+    new_variant.clone_zone_vec(3);
     new_variant.split(4, 0, SplitDirection::Vertical(640));
     new_variant.merge_and_split_zones(4, 2, 1, SplitDirection::Vertical(1440));
     let mut gui = himewm_layout_editor::LayoutEditorGUI::create();
