@@ -1,5 +1,5 @@
 use enums::{Color, FrameType};
-use fltk::*;
+use fltk::{group::FlexType, *};
 use fltk_theme::*;
 use group::{PackType, ScrollType};
 use himewm_layout::*;
@@ -7,15 +7,20 @@ use prelude::{GroupExt, WidgetBase, WidgetExt};
 
 #[derive(Clone)]
 enum Message {
-    VariantChanged(usize),
-    ZonesChanged(usize),
-    ZoneChanged(usize),
+    SelectedVariantChanged(usize),
+    SelectedLayoutStateChanged(usize),
+    SelectedZoneChanged(usize),
+    NewLayoutState,
+    CloneLayoutState(usize),
+    SwapLayoutStates(usize, usize),
+    DeleteLayoutState(usize),
+
 }
 
 struct LayoutEditor {
     layout_group: LayoutGroup,
     selected_variant_idx: usize,
-    selected_zones_idx: usize,
+    selected_layout_state_idx: usize,
     selected_zone_idx1: Option<usize>,
     selected_zone_idx2: Option<usize>,
 }
@@ -27,7 +32,7 @@ impl LayoutEditor {
         return LayoutEditor {
             layout_group: layout,
             selected_variant_idx: default_idx,
-            selected_zones_idx: 0,
+            selected_layout_state_idx: 0,
             selected_zone_idx1: None,
             selected_zone_idx2: None,
         };
@@ -37,25 +42,49 @@ impl LayoutEditor {
 struct EditorWidgets {
     editor: LayoutEditor,
     variant_list: group::Scroll,
-    zones_selection: group::Scroll,
-    zones_display: group::Group,
+    layout_state_selection: group::Scroll,
+    layout_state_buttons: group::Flex,
+    layout_state_pack: group::Pack,
+    layout_state_display: group::Group,
 }
 
 impl EditorWidgets {
     fn initialize(layout: LayoutGroup, sender: &app::Sender<Message>) -> Self {
         let variant_list = Self::create_variant_list(&layout, sender);
 
-        let zones_selection = Self::create_zones_selection(&layout, sender);
+        let layout_state_selection = Self::create_layout_state_selection(&layout, sender);
 
-        let zones_display = Self::create_zones_display(&layout, sender);
+        let layout_state_buttons = Self::create_layout_state_buttons(sender).below_of(&layout_state_selection, 4);
+
+        let layout_state_pack_h= layout_state_selection.h() + layout_state_buttons.h();
+
+        let mut layout_state_pack = group::Pack::default().with_size(layout_state_selection.w(), layout_state_pack_h);
+
+        layout_state_pack.end();
+        
+        layout_state_pack.set_spacing(4);
+
+        layout_state_pack.resize_callback(move |p, _, _, _, h| {
+            if h != layout_state_pack_h {
+                p.widget_resize(p.x(), p.y(), p.w(), layout_state_pack_h); 
+            }
+        });
+
+        layout_state_pack.add(&layout_state_selection);
+
+        layout_state_pack.add(&layout_state_buttons);
+
+        let layout_state_display = Self::create_layout_state_display(&layout, sender);
 
         let editor = LayoutEditor::new(layout);
 
         let mut ret = EditorWidgets {
             editor,
             variant_list,
-            zones_selection,
-            zones_display,
+            layout_state_selection,
+            layout_state_buttons,
+            layout_state_pack,
+            layout_state_display,
         };
 
         ret.update_highlighted_variant(
@@ -63,30 +92,30 @@ impl EditorWidgets {
             ret.editor.selected_variant_idx,
         );
 
-        ret.update_shown_zones_selection(
+        ret.update_shown_layout_state_selection(
             ret.editor.selected_variant_idx,
             ret.editor.selected_variant_idx,
         );
 
-        ret.update_highlighted_zones_button(
+        ret.update_highlighted_layout_state_button(
             (
                 ret.editor.selected_variant_idx,
-                ret.editor.selected_zones_idx,
+                ret.editor.selected_layout_state_idx,
             ),
             (
                 ret.editor.selected_variant_idx,
-                ret.editor.selected_zones_idx,
+                ret.editor.selected_layout_state_idx,
             ),
         );
 
-        ret.update_shown_zones(
+        ret.update_shown_layout_state(
             (
                 ret.editor.selected_variant_idx,
-                ret.editor.selected_zones_idx,
+                ret.editor.selected_layout_state_idx,
             ),
             (
                 ret.editor.selected_variant_idx,
-                ret.editor.selected_zones_idx,
+                ret.editor.selected_layout_state_idx,
             ),
         );
 
@@ -123,7 +152,7 @@ impl EditorWidgets {
                 b.set_label(i.to_string().as_str());
             }
 
-            b.emit(sender.clone(), Message::VariantChanged(i));
+            b.emit(sender.clone(), Message::SelectedVariantChanged(i));
         }
 
         pack.end();
@@ -133,7 +162,7 @@ impl EditorWidgets {
         return scroll;
     }
 
-    fn create_zones_selection(
+    fn create_layout_state_selection(
         layout: &LayoutGroup,
         sender: &app::Sender<Message>,
     ) -> group::Scroll {
@@ -144,12 +173,6 @@ impl EditorWidgets {
         // Any styling of the scrollbar should probably happen here
 
         scroll.set_color(Color::Background2);
-
-        scroll.resize_callback(|s, _, _, _, h| {
-            if h != 72 {
-                s.widget_resize(s.x(), s.y(), s.w(), 72);
-            }
-        });
 
         for variant in layout.get_layouts() {
             let mut pack = group::Pack::default()
@@ -168,7 +191,7 @@ impl EditorWidgets {
 
                 b.set_selection_color(Color::Background);
 
-                b.emit(sender.clone(), Message::ZonesChanged(j));
+                b.emit(sender.clone(), Message::SelectedLayoutStateChanged(j));
             }
 
             pack.end();
@@ -181,7 +204,44 @@ impl EditorWidgets {
         return scroll;
     }
 
-    fn create_zones_display(layout: &LayoutGroup, sender: &app::Sender<Message>) -> group::Group {
+    fn create_layout_state_buttons(sender: &app::Sender<Message>) -> group::Flex {
+        let mut flex = group::Flex::default_fill().with_type(FlexType::Row);
+
+        let new_width = flex.w()/2;
+
+        WidgetExt::set_size(&mut flex, new_width, 32);
+
+        flex.set_pad(4);
+
+        let button_new = button::Button::default().with_label("New");
+
+        let button_duplicate = button::Button::default().with_label("Duplicate");
+
+        let button_delete = button::Button::default().with_label("Delete");
+
+        let _frame = frame::Frame::default();
+        
+        let button_left = button::Button::default().with_label("@<");
+        
+        let button_right = button::Button::default().with_label("@>");
+        
+        flex.fixed(&button_new, 64);
+        
+        flex.fixed(&button_duplicate, 80);
+        
+        flex.fixed(&button_delete, 64);
+        
+        flex.fixed(&button_left, 32);
+        
+        flex.fixed(&button_right, 32);
+
+        flex.end();
+
+        return flex;
+
+    }
+
+    fn create_layout_state_display(layout: &LayoutGroup, sender: &app::Sender<Message>) -> group::Group {
         let mut group = group::Group::default_fill();
 
         for variant in layout.get_layouts() {
@@ -225,13 +285,13 @@ impl EditorWidgets {
 
         group.set_size(w, h);
 
-        let zones = &layout.get_zones()[idx];
+        let layout_state = &layout.get_zones()[idx];
 
         let layout_width = layout.get_monitor_rect().right as f64;
 
         let layout_height = layout.get_monitor_rect().bottom as f64;
 
-        for (i, zone) in zones.iter().enumerate() {
+        for (i, zone) in layout_state.iter().enumerate() {
             let mut b = button::Button::new(
                 ((zone.left as f64 * w as f64) / layout_width).round() as i32,
                 ((zone.top as f64 * h as f64) / layout_height).round() as i32,
@@ -252,7 +312,7 @@ impl EditorWidgets {
 
             b.set_selection_color(colors::html::DodgerBlue);
 
-            b.emit(sender.clone(), Message::ZoneChanged(i));
+            b.emit(sender.clone(), Message::SelectedZoneChanged(i));
         }
 
         group.end();
@@ -274,22 +334,22 @@ impl EditorWidgets {
         }
     }
 
-    fn update_shown_zones_selection(&mut self, old_idx: usize, new_idx: usize) {
-        if let Some(old_pack) = &mut self.zones_selection.child(old_idx as i32) {
+    fn update_shown_layout_state_selection(&mut self, old_idx: usize, new_idx: usize) {
+        if let Some(old_pack) = &mut self.layout_state_selection.child(old_idx as i32) {
             old_pack.hide();
         }
 
-        if let Some(new_pack) = &mut self.zones_selection.child(new_idx as i32) {
+        if let Some(new_pack) = &mut self.layout_state_selection.child(new_idx as i32) {
             new_pack.show();
         }
     }
 
-    fn update_highlighted_zones_button(
+    fn update_highlighted_layout_state_button(
         &mut self,
         old_idx: (usize, usize),
         new_idx: (usize, usize),
     ) {
-        if let Some(old_pack) = &mut self.zones_selection.child(old_idx.0 as i32) {
+        if let Some(old_pack) = &mut self.layout_state_selection.child(old_idx.0 as i32) {
             if let Some(old_button) = &mut group::Pack::from_dyn_widget(old_pack)
                 .unwrap()
                 .child(old_idx.1 as i32)
@@ -300,7 +360,7 @@ impl EditorWidgets {
             old_pack.hide();
         }
 
-        if let Some(new_pack) = &mut self.zones_selection.child(new_idx.0 as i32) {
+        if let Some(new_pack) = &mut self.layout_state_selection.child(new_idx.0 as i32) {
             if let Some(new_button) = &mut group::Pack::from_dyn_widget(new_pack)
                 .unwrap()
                 .child(new_idx.1 as i32)
@@ -312,8 +372,8 @@ impl EditorWidgets {
         }
     }
 
-    fn update_shown_zones(&mut self, old_idx: (usize, usize), new_idx: (usize, usize)) {
-        if let Some(old_variant_group) = &mut self.zones_display.child(old_idx.0 as i32) {
+    fn update_shown_layout_state(&mut self, old_idx: (usize, usize), new_idx: (usize, usize)) {
+        if let Some(old_variant_group) = &mut self.layout_state_display.child(old_idx.0 as i32) {
             if let Some(old_group) = &mut group::Group::from_dyn_widget(old_variant_group)
                 .unwrap()
                 .child(old_idx.1 as i32)
@@ -324,7 +384,7 @@ impl EditorWidgets {
             old_variant_group.hide();
         }
 
-        if let Some(new_variant_group) = &mut self.zones_display.child(new_idx.0 as i32) {
+        if let Some(new_variant_group) = &mut self.layout_state_display.child(new_idx.0 as i32) {
             if let Some(new_group) = &mut group::Group::from_dyn_widget(new_variant_group)
                 .unwrap()
                 .child(new_idx.1 as i32)
@@ -376,14 +436,12 @@ impl LayoutEditorGUI {
         // Test code
 
         if let Some(editor) = &mut self.editor_widgets {
-            editor.zones_selection.set_pos(
-                self.window.w() / 2 - editor.zones_selection.w() / 2,
-                editor.zones_selection.y(),
-            );
 
-            editor.zones_display.set_pos(
-                self.window.w() / 2 - editor.zones_display.w() / 2,
-                self.window.h() / 2 - editor.zones_display.h() / 2,
+            editor.layout_state_pack.set_pos(self.window.w()/2 - editor.layout_state_pack.w()/2, 0);
+
+            editor.layout_state_display.set_pos(
+                self.window.w() / 2 - editor.layout_state_display.w() / 2,
+                self.window.h() / 2 - editor.layout_state_display.h() / 2,
             );
         }
     }
@@ -397,43 +455,45 @@ impl LayoutEditorGUI {
 
         if let Some(msg) = self.receiver.recv() {
             match msg {
-                Message::VariantChanged(idx) => {
+                Message::SelectedVariantChanged(idx) => {
                     let old_variant_idx = editor_widgets.editor.selected_variant_idx;
 
-                    let old_zones_idx = editor_widgets.editor.selected_zones_idx;
+                    let old_layout_state_idx = editor_widgets.editor.selected_layout_state_idx;
 
                     editor_widgets.editor.selected_variant_idx = idx;
 
-                    editor_widgets.editor.selected_zones_idx = 0;
+                    editor_widgets.editor.selected_layout_state_idx = 0;
 
                     editor_widgets.update_highlighted_variant(old_variant_idx, idx);
 
-                    editor_widgets.update_shown_zones_selection(old_variant_idx, idx);
+                    editor_widgets.update_shown_layout_state_selection(old_variant_idx, idx);
 
-                    editor_widgets.update_highlighted_zones_button(
-                        (old_variant_idx, old_zones_idx),
+                    editor_widgets.update_highlighted_layout_state_button(
+                        (old_variant_idx, old_layout_state_idx),
                         (idx, 0),
                     );
 
-                    editor_widgets.update_shown_zones((old_variant_idx, old_zones_idx), (idx, 0));
+                    editor_widgets.update_shown_layout_state((old_variant_idx, old_layout_state_idx), (idx, 0));
                 }
 
-                Message::ZonesChanged(idx) => {
+                Message::SelectedLayoutStateChanged(idx) => {
                     let variant_idx = editor_widgets.editor.selected_variant_idx;
 
-                    let old_idx = editor_widgets.editor.selected_zones_idx;
+                    let old_idx = editor_widgets.editor.selected_layout_state_idx;
 
-                    editor_widgets.editor.selected_zones_idx = idx;
+                    editor_widgets.editor.selected_layout_state_idx = idx;
 
-                    editor_widgets.update_highlighted_zones_button(
+                    editor_widgets.update_highlighted_layout_state_button(
                         (variant_idx, old_idx),
                         (variant_idx, idx),
                     );
 
-                    editor_widgets.update_shown_zones((variant_idx, old_idx), (variant_idx, idx));
+                    editor_widgets.update_shown_layout_state((variant_idx, old_idx), (variant_idx, idx));
                 }
 
-                Message::ZoneChanged(idx) => {}
+                Message::SelectedZoneChanged(idx) => {}
+
+                _ => ()
             }
         }
     }
