@@ -6,14 +6,20 @@ use himewm_layout::*;
 use prelude::{GroupExt, WidgetBase, WidgetExt};
 
 #[derive(Clone)]
+enum SwapDirection {
+    Previous,
+    Next
+}
+
+#[derive(Clone)]
 enum Message {
     SelectedVariantChanged(usize),
     SelectedLayoutStateChanged(usize),
     SelectedZoneChanged(usize),
     NewLayoutState,
-    CloneLayoutState(usize),
-    SwapLayoutStates(usize, usize),
-    DeleteLayoutState(usize),
+    DuplicateLayoutState,
+    DeleteLayoutState,
+    SwapLayoutState(SwapDirection),
 
 }
 
@@ -122,6 +128,56 @@ impl EditorWidgets {
         return ret;
     }
 
+    fn group_from_layout_state(
+        layout: &Layout,
+        idx: usize,
+        sender: &app::Sender<Message>,
+    ) -> group::Group {
+        let group = group::Group::default_fill();
+
+        let w = group.w();
+
+        let h = group.h();
+
+        let x_offset = group.x();
+
+        let y_offset = group.y();
+
+        let zones = &layout.get_zones()[idx];
+
+        let layout_width = layout.get_monitor_rect().right as f64;
+
+        let layout_height = layout.get_monitor_rect().bottom as f64;
+
+        for (i, zone) in zones.iter().enumerate() {
+            let mut b = button::Button::new(
+                ((zone.left as f64 * w as f64) / layout_width).round() as i32 + x_offset,
+                ((zone.top as f64 * h as f64) / layout_height).round() as i32 + y_offset,
+                ((zone.w() as f64 * w as f64) / layout_width).round() as i32,
+                ((zone.h() as f64 * h as f64) / layout_height).round() as i32,
+                Some((i + 1).to_string().as_str()),
+            );
+
+            // TODO: this frame type doesn't look too great - probably
+            // figure out how to make it look better
+            b.set_frame(FrameType::EmbossedBox);
+
+            b.set_label_size(36);
+
+            b.set_label_color(Color::Black);
+
+            b.set_color(colors::html::Gainsboro);
+
+            b.set_selection_color(colors::html::DodgerBlue);
+
+            b.emit(sender.clone(), Message::SelectedZoneChanged(i));
+        }
+
+        group.end();
+
+        return group;
+    }
+
     fn create_variant_list(layout: &LayoutGroup, sender: &app::Sender<Message>) -> group::Scroll {
         let mut scroll = group::Scroll::default_fill().with_type(ScrollType::Vertical);
 
@@ -213,17 +269,17 @@ impl EditorWidgets {
 
         flex.set_pad(4);
 
-        let button_new = button::Button::default().with_label("New");
+        let mut button_new = button::Button::default().with_label("New");
 
-        let button_duplicate = button::Button::default().with_label("Duplicate");
+        let mut button_duplicate = button::Button::default().with_label("Duplicate");
 
-        let button_delete = button::Button::default().with_label("Delete");
+        let mut button_delete = button::Button::default().with_label("Delete");
 
-        let _frame = frame::Frame::default();
+        let  _frame = frame::Frame::default();
         
-        let button_left = button::Button::default().with_label("@<");
+        let mut button_left = button::Button::default().with_label("@<");
         
-        let button_right = button::Button::default().with_label("@>");
+        let mut button_right = button::Button::default().with_label("@>");
         
         flex.fixed(&button_new, 64);
         
@@ -237,6 +293,16 @@ impl EditorWidgets {
 
         flex.end();
 
+        button_new.emit(sender.clone(), Message::NewLayoutState);
+
+        button_duplicate.emit(sender.clone(), Message::DuplicateLayoutState);
+        
+        button_delete.emit(sender.clone(), Message::DeleteLayoutState);
+
+        button_left.emit(sender.clone(), Message::SwapLayoutState(SwapDirection::Previous));
+
+        button_right.emit(sender.clone(), Message::SwapLayoutState(SwapDirection::Next));
+
         return flex;
 
     }
@@ -244,75 +310,20 @@ impl EditorWidgets {
     fn create_layout_state_display(layout: &LayoutGroup, sender: &app::Sender<Message>) -> group::Group {
         let mut group = group::Group::default_fill();
 
+        group.set_size(group.w() / 2, group.h() / 2);
+
         for variant in layout.get_layouts() {
             let mut variant_group = group::Group::default_fill();
 
             for i in 0..variant.manual_zones_until() {
-                let mut g = Self::group_widget_from_layout_at(variant, i, sender);
+                let mut g = Self::group_from_layout_state(variant, i, sender);
 
                 g.hide();
             }
 
-            variant_group.widget_resize(
-                variant_group.x(),
-                variant_group.y(),
-                variant_group.w() / 2,
-                variant_group.h() / 2,
-            );
-
             variant_group.end();
 
             variant_group.hide();
-        }
-
-        group.widget_resize(group.x(), group.y(), group.w() / 2, group.h() / 2);
-
-        group.end();
-
-        return group;
-    }
-
-    fn group_widget_from_layout_at(
-        layout: &Layout,
-        idx: usize,
-        sender: &app::Sender<Message>,
-    ) -> group::Group {
-        let mut group = group::Group::default_fill();
-
-        let w = group.w() / 2;
-
-        let h = group.h() / 2;
-
-        group.set_size(w, h);
-
-        let layout_state = &layout.get_zones()[idx];
-
-        let layout_width = layout.get_monitor_rect().right as f64;
-
-        let layout_height = layout.get_monitor_rect().bottom as f64;
-
-        for (i, zone) in layout_state.iter().enumerate() {
-            let mut b = button::Button::new(
-                ((zone.left as f64 * w as f64) / layout_width).round() as i32,
-                ((zone.top as f64 * h as f64) / layout_height).round() as i32,
-                ((zone.w() as f64 * w as f64) / layout_width).round() as i32,
-                ((zone.h() as f64 * h as f64) / layout_height).round() as i32,
-                Some((i + 1).to_string().as_str()),
-            );
-
-            // TODO: this frame type doesn't look too great - probably
-            // figure out how to make it look better
-            b.set_frame(FrameType::EmbossedBox);
-
-            b.set_label_size(36);
-
-            b.set_label_color(Color::Black);
-
-            b.set_color(colors::html::Gainsboro);
-
-            b.set_selection_color(colors::html::DodgerBlue);
-
-            b.emit(sender.clone(), Message::SelectedZoneChanged(i));
         }
 
         group.end();
@@ -394,6 +405,35 @@ impl EditorWidgets {
 
             new_variant_group.show();
         }
+    }
+
+    fn new_layout_state(&mut self, sender: &app::Sender<Message>, variant_idx: usize) {
+        let variant_layout_state_pack = &mut group::Pack::from_dyn_widget(&self.layout_state_selection.child(variant_idx as i32).unwrap()).unwrap();
+        
+        variant_layout_state_pack.begin();
+
+        let mut b = button::Button::default()
+            .with_size(64, 0)
+            .with_label(variant_layout_state_pack.children().to_string().as_str());
+
+        b.set_color(Color::Background2);
+
+        b.set_selection_color(Color::Background);
+
+        b.emit(sender.clone(), Message::SelectedLayoutStateChanged(variant_layout_state_pack.children() as usize - 1));
+
+        variant_layout_state_pack.end();
+
+        let variant_layout_state_display_group = &mut group::Group::from_dyn_widget(&self.layout_state_display.child(variant_idx as i32).unwrap()).unwrap();
+
+        variant_layout_state_display_group.begin();
+        
+        let _g = Self::group_from_layout_state(&self.editor.layout_group.get_layouts()[variant_idx], variant_layout_state_pack.children() as usize - 1, sender);
+
+        variant_layout_state_display_group.end();
+
+        sender.send(Message::SelectedLayoutStateChanged(variant_layout_state_pack.children() as usize - 1));
+
     }
 }
 
@@ -493,7 +533,30 @@ impl LayoutEditorGUI {
 
                 Message::SelectedZoneChanged(idx) => {}
 
-                _ => ()
+                Message::NewLayoutState => {
+                    let layout = &mut editor_widgets.editor.layout_group.get_layouts_mut()[editor_widgets.editor.selected_variant_idx];
+                    
+                    layout.new_zone_vec();
+                    
+                    editor_widgets.new_layout_state(&self.sender, editor_widgets.editor.selected_variant_idx);
+                }
+
+                Message::DuplicateLayoutState => {
+                    let layout = &mut editor_widgets.editor.layout_group.get_layouts_mut()[editor_widgets.editor.selected_variant_idx];
+
+                    let idx = editor_widgets.editor.selected_layout_state_idx;
+                    layout.clone_zone_vec(idx);
+
+                    editor_widgets.new_layout_state(&self.sender, editor_widgets.editor.selected_variant_idx);
+                }
+
+                Message::DeleteLayoutState => {}
+
+                Message::SwapLayoutState(swap_direction) => {
+
+
+
+                }
             }
         }
     }
