@@ -8,7 +8,7 @@ use prelude::{GroupExt, WidgetBase, WidgetExt};
 #[derive(Clone)]
 enum SwapDirection {
     Previous,
-    Next
+    Next,
 }
 
 #[derive(Clone)]
@@ -20,7 +20,6 @@ enum Message {
     DuplicateLayoutState,
     DeleteLayoutState,
     SwapLayoutState(SwapDirection),
-
 }
 
 struct LayoutEditor {
@@ -60,19 +59,21 @@ impl EditorWidgets {
 
         let layout_state_selection = Self::create_layout_state_selection(&layout, sender);
 
-        let layout_state_buttons = Self::create_layout_state_buttons(sender).below_of(&layout_state_selection, 4);
+        let layout_state_buttons =
+            Self::create_layout_state_buttons(sender).below_of(&layout_state_selection, 4);
 
-        let layout_state_pack_h= layout_state_selection.h() + layout_state_buttons.h();
+        let layout_state_pack_h = layout_state_selection.h() + layout_state_buttons.h();
 
-        let mut layout_state_pack = group::Pack::default().with_size(layout_state_selection.w(), layout_state_pack_h);
+        let mut layout_state_pack =
+            group::Pack::default().with_size(layout_state_selection.w(), layout_state_pack_h);
 
         layout_state_pack.end();
-        
+
         layout_state_pack.set_spacing(4);
 
         layout_state_pack.resize_callback(move |p, _, _, _, h| {
             if h != layout_state_pack_h {
-                p.widget_resize(p.x(), p.y(), p.w(), layout_state_pack_h); 
+                p.widget_resize(p.x(), p.y(), p.w(), layout_state_pack_h);
             }
         });
 
@@ -263,7 +264,7 @@ impl EditorWidgets {
     fn create_layout_state_buttons(sender: &app::Sender<Message>) -> group::Flex {
         let mut flex = group::Flex::default_fill().with_type(FlexType::Row);
 
-        let new_width = flex.w()/2;
+        let new_width = flex.w() / 2;
 
         WidgetExt::set_size(&mut flex, new_width, 32);
 
@@ -275,20 +276,20 @@ impl EditorWidgets {
 
         let mut button_delete = button::Button::default().with_label("Delete");
 
-        let  _frame = frame::Frame::default();
-        
+        let _frame = frame::Frame::default();
+
         let mut button_left = button::Button::default().with_label("@<");
-        
+
         let mut button_right = button::Button::default().with_label("@>");
-        
+
         flex.fixed(&button_new, 64);
-        
+
         flex.fixed(&button_duplicate, 80);
-        
+
         flex.fixed(&button_delete, 64);
-        
+
         flex.fixed(&button_left, 32);
-        
+
         flex.fixed(&button_right, 32);
 
         flex.end();
@@ -296,18 +297,26 @@ impl EditorWidgets {
         button_new.emit(sender.clone(), Message::NewLayoutState);
 
         button_duplicate.emit(sender.clone(), Message::DuplicateLayoutState);
-        
+
         button_delete.emit(sender.clone(), Message::DeleteLayoutState);
 
-        button_left.emit(sender.clone(), Message::SwapLayoutState(SwapDirection::Previous));
+        button_left.emit(
+            sender.clone(),
+            Message::SwapLayoutState(SwapDirection::Previous),
+        );
 
-        button_right.emit(sender.clone(), Message::SwapLayoutState(SwapDirection::Next));
+        button_right.emit(
+            sender.clone(),
+            Message::SwapLayoutState(SwapDirection::Next),
+        );
 
         return flex;
-
     }
 
-    fn create_layout_state_display(layout: &LayoutGroup, sender: &app::Sender<Message>) -> group::Group {
+    fn create_layout_state_display(
+        layout: &LayoutGroup,
+        sender: &app::Sender<Message>,
+    ) -> group::Group {
         let mut group = group::Group::default_fill();
 
         group.set_size(group.w() / 2, group.h() / 2);
@@ -408,8 +417,14 @@ impl EditorWidgets {
     }
 
     fn new_layout_state(&mut self, sender: &app::Sender<Message>, variant_idx: usize) {
-        let variant_layout_state_pack = &mut group::Pack::from_dyn_widget(&self.layout_state_selection.child(variant_idx as i32).unwrap()).unwrap();
-        
+        let variant_layout_state_pack = &mut group::Pack::from_dyn_widget(
+            &self
+                .layout_state_selection
+                .child(variant_idx as i32)
+                .unwrap(),
+        )
+        .unwrap();
+
         variant_layout_state_pack.begin();
 
         let mut b = button::Button::default()
@@ -420,20 +435,31 @@ impl EditorWidgets {
 
         b.set_selection_color(Color::Background);
 
-        b.emit(sender.clone(), Message::SelectedLayoutStateChanged(variant_layout_state_pack.children() as usize - 1));
+        b.emit(
+            sender.clone(),
+            Message::SelectedLayoutStateChanged(variant_layout_state_pack.children() as usize - 1),
+        );
 
         variant_layout_state_pack.end();
 
-        let variant_layout_state_display_group = &mut group::Group::from_dyn_widget(&self.layout_state_display.child(variant_idx as i32).unwrap()).unwrap();
+        let variant_layout_state_display_group = &mut group::Group::from_dyn_widget(
+            &self.layout_state_display.child(variant_idx as i32).unwrap(),
+        )
+        .unwrap();
 
         variant_layout_state_display_group.begin();
-        
-        let _g = Self::group_from_layout_state(&self.editor.layout_group.get_layouts()[variant_idx], variant_layout_state_pack.children() as usize - 1, sender);
+
+        let _g = Self::group_from_layout_state(
+            &self.editor.layout_group.get_layouts()[variant_idx],
+            variant_layout_state_pack.children() as usize - 1,
+            sender,
+        );
 
         variant_layout_state_display_group.end();
 
-        sender.send(Message::SelectedLayoutStateChanged(variant_layout_state_pack.children() as usize - 1));
-
+        sender.send(Message::SelectedLayoutStateChanged(
+            variant_layout_state_pack.children() as usize - 1,
+        ));
     }
 }
 
@@ -476,8 +502,9 @@ impl LayoutEditorGUI {
         // Test code
 
         if let Some(editor) = &mut self.editor_widgets {
-
-            editor.layout_state_pack.set_pos(self.window.w()/2 - editor.layout_state_pack.w()/2, 0);
+            editor
+                .layout_state_pack
+                .set_pos(self.window.w() / 2 - editor.layout_state_pack.w() / 2, 0);
 
             editor.layout_state_display.set_pos(
                 self.window.w() / 2 - editor.layout_state_display.w() / 2,
@@ -513,7 +540,10 @@ impl LayoutEditorGUI {
                         (idx, 0),
                     );
 
-                    editor_widgets.update_shown_layout_state((old_variant_idx, old_layout_state_idx), (idx, 0));
+                    editor_widgets.update_shown_layout_state(
+                        (old_variant_idx, old_layout_state_idx),
+                        (idx, 0),
+                    );
                 }
 
                 Message::SelectedLayoutStateChanged(idx) => {
@@ -528,35 +558,36 @@ impl LayoutEditorGUI {
                         (variant_idx, idx),
                     );
 
-                    editor_widgets.update_shown_layout_state((variant_idx, old_idx), (variant_idx, idx));
+                    editor_widgets
+                        .update_shown_layout_state((variant_idx, old_idx), (variant_idx, idx));
                 }
 
                 Message::SelectedZoneChanged(idx) => {}
 
                 Message::NewLayoutState => {
-                    let layout = &mut editor_widgets.editor.layout_group.get_layouts_mut()[editor_widgets.editor.selected_variant_idx];
-                    
+                    let layout = &mut editor_widgets.editor.layout_group.get_layouts_mut()
+                        [editor_widgets.editor.selected_variant_idx];
+
                     layout.new_zone_vec();
-                    
-                    editor_widgets.new_layout_state(&self.sender, editor_widgets.editor.selected_variant_idx);
+
+                    editor_widgets
+                        .new_layout_state(&self.sender, editor_widgets.editor.selected_variant_idx);
                 }
 
                 Message::DuplicateLayoutState => {
-                    let layout = &mut editor_widgets.editor.layout_group.get_layouts_mut()[editor_widgets.editor.selected_variant_idx];
+                    let layout = &mut editor_widgets.editor.layout_group.get_layouts_mut()
+                        [editor_widgets.editor.selected_variant_idx];
 
                     let idx = editor_widgets.editor.selected_layout_state_idx;
                     layout.clone_zone_vec(idx);
 
-                    editor_widgets.new_layout_state(&self.sender, editor_widgets.editor.selected_variant_idx);
+                    editor_widgets
+                        .new_layout_state(&self.sender, editor_widgets.editor.selected_variant_idx);
                 }
 
                 Message::DeleteLayoutState => {}
 
-                Message::SwapLayoutState(swap_direction) => {
-
-
-
-                }
+                Message::SwapLayoutState(swap_direction) => {}
             }
         }
     }
