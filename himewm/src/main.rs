@@ -18,7 +18,7 @@ fn main() {
     let mut msg = MSG::default();
 
     unsafe {
-        let layout_groups = match init::initialize_layouts() {
+        let layouts = match init::initialize_layouts() {
             Some(val) => val,
 
             None => {
@@ -34,10 +34,10 @@ fn main() {
 
         tray_menu::set_menu_event_handler();
 
-        let mut wm = himewm::WindowManager::new(user_settings.to_settings(&layout_groups));
+        let mut wm = himewm::WindowManager::new(user_settings.to_settings(&layouts));
 
         wm.initialize(
-            layout_groups
+            layouts
                 .into_iter()
                 .map(|(_, layout)| layout)
                 .collect(),

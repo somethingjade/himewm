@@ -148,7 +148,7 @@ pub struct WindowManager {
     monitor_handles: Vec<HMONITOR>,
     window_info: std::collections::HashMap<*mut core::ffi::c_void, WindowInfo>,
     workspaces: std::collections::HashMap<(GUID, *mut core::ffi::c_void), Workspace>,
-    layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<LayoutGroup>>,
+    layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<Layout>>,
     foreground_window: Option<HWND>,
     grabbed_window: Option<HWND>,
     ignored_combinations: std::collections::HashSet<(GUID, *mut core::ffi::c_void)>,
@@ -188,7 +188,7 @@ impl WindowManager {
         }
     }
 
-    pub unsafe fn initialize(&mut self, layout_groups: Vec<LayoutGroup>) {
+    pub unsafe fn initialize(&mut self, layouts: Vec<Layout>) {
         let _ = EnumDisplayMonitors(
             None,
             None,
@@ -196,13 +196,13 @@ impl WindowManager {
             LPARAM(self as *mut WindowManager as isize),
         );
 
-        for layout_group in layout_groups {
+        for layout in layouts {
             for (hmonitor, layouts) in self.layouts.iter_mut() {
                 let mut layout =
-                    match LayoutGroup::convert_for_monitor(&layout_group, HMONITOR(*hmonitor)) {
+                    match Layout::convert_for_monitor(&layout, HMONITOR(*hmonitor)) {
                         Some(val) => val,
 
-                        None => layout_group.clone(),
+                        None => layout.clone(),
                     };
 
                 layout.update_all(self.settings.window_padding, self.settings.edge_padding);
@@ -592,7 +592,7 @@ impl WindowManager {
             let positions = if changed_monitors {
                 let layout = &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()
                     [workspace.layout_idx]
-                    .get_layouts_mut()[workspace.variant_idx];
+                    .get_variants_mut()[workspace.variant_idx];
 
                 while layout.positions_len() < workspace.managed_window_handles.len() + 1 {
                     layout.extend();
@@ -603,7 +603,7 @@ impl WindowManager {
                 layout.get_positions_at(workspace.managed_window_handles.len())
             } else {
                 self.layouts.get(&original_monitor_handle.0).unwrap()[workspace.layout_idx]
-                    .get_layouts()[workspace.variant_idx]
+                    .get_variants()[workspace.variant_idx]
                     .get_positions_at(workspace.managed_window_handles.len() - 1)
             };
 
@@ -796,10 +796,10 @@ impl WindowManager {
             _ => return,
         };
 
-        let layouts_len =
-            self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].layouts_len();
+        let variants_len =
+            self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].variants_len();
 
-        if layouts_len == 1 {
+        if variants_len == 1 {
             return;
         }
 
@@ -808,12 +808,12 @@ impl WindowManager {
                 if workspace.variant_idx != 0 {
                     workspace.variant_idx -= 1;
                 } else {
-                    workspace.variant_idx = layouts_len - 1;
+                    workspace.variant_idx = variants_len - 1;
                 }
             }
 
             CycleDirection::Next => {
-                if workspace.variant_idx != layouts_len - 1 {
+                if workspace.variant_idx != variants_len - 1 {
                     workspace.variant_idx += 1;
                 } else {
                     workspace.variant_idx = 0;
@@ -1089,7 +1089,7 @@ impl WindowManager {
                 .unwrap();
 
             let layout = &self.layouts.get(&new_monitor_handle.0).unwrap()[workspace.layout_idx]
-                .get_layouts()[workspace.variant_idx];
+                .get_variants()[workspace.variant_idx];
 
             let position = &layout.get_positions_at(workspace.managed_window_handles.len() - 1)
                 [workspace.managed_window_handles.len() - 1];
@@ -1231,7 +1231,7 @@ impl WindowManager {
 
                 let layout = &self.layouts.get(&new_monitor_handle.0).unwrap()
                     [workspace.layout_idx]
-                    .get_layouts()[workspace.variant_idx];
+                    .get_variants()[workspace.variant_idx];
 
                 let position =
                     &layout.get_positions_at(workspace.managed_window_handles.len() - 1)[new_idx];
@@ -1287,7 +1287,7 @@ impl WindowManager {
 
                     let layout = &self.layouts.get(&monitor_handle.0).unwrap()
                         [workspace.layout_idx]
-                        .get_layouts()[workspace.variant_idx];
+                        .get_variants()[workspace.variant_idx];
 
                     let position = &layout
                         .get_positions_at(workspace.managed_window_handles.len() - 1)
@@ -1357,7 +1357,7 @@ impl WindowManager {
         }
 
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx]
-            .get_layouts_mut()[workspace.variant_idx];
+            .get_variants_mut()[workspace.variant_idx];
 
         while layout.positions_len() < workspace.managed_window_handles.len() {
             layout.extend();

@@ -69,7 +69,7 @@ impl Default for UserSettings {
 impl UserSettings {
     pub fn to_settings(
         &self,
-        layouts: &Vec<(std::path::PathBuf, himewm_layout::LayoutGroup)>,
+        layouts: &Vec<(std::path::PathBuf, himewm_layout::Layout)>,
     ) -> himewm::Settings {
         if self.default_layout != std::path::Path::new("") {
             for (idx, (p, _)) in layouts.iter().enumerate() {
@@ -134,7 +134,7 @@ pub fn initialize_settings() -> UserSettings {
     }
 }
 
-pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, LayoutGroup)>> {
+pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
     let mut ret = Vec::new();
 
     let dirs = Directories::new();
@@ -143,7 +143,7 @@ pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, LayoutGroup)>> {
         match entry_result {
             Ok(entry) => match std::fs::read(entry.path()) {
                 Ok(byte_vector) => {
-                    let layout_group: LayoutGroup =
+                    let layout: Layout =
                         match serde_json::from_slice(byte_vector.as_slice()) {
                             Ok(val) => val,
 
@@ -152,7 +152,7 @@ pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, LayoutGroup)>> {
 
                     let layout_name = std::path::Path::new(&entry.file_name()).with_extension("");
 
-                    ret.push((layout_name, layout_group));
+                    ret.push((layout_name, layout));
                 }
 
                 Err(_) => continue,

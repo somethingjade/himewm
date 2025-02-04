@@ -2,11 +2,11 @@ use himewm_layout::*;
 
 #[test]
 fn show_layout() {
-    let mut layout_group = LayoutGroup::new(1920, 1200);
+    let mut layout_group = Layout::new(1920, 1200);
 
     let idx = layout_group.default_idx();
 
-    let variant = &mut layout_group.get_layouts_mut()[idx];
+    let variant = &mut layout_group.get_variants_mut()[idx];
 
     variant.new_zone_vec();
 
@@ -18,7 +18,7 @@ fn show_layout() {
 
     layout_group.new_variant_from(layout_group.default_idx());
 
-    let new_variant = &mut layout_group.get_layouts_mut()[1];
+    let new_variant = &mut layout_group.get_variants_mut()[1];
 
     for _i in 0..2 {
         new_variant.delete_zones(1);

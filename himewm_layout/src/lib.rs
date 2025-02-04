@@ -118,7 +118,7 @@ pub struct Position {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Layout {
+pub struct Variant {
     monitor_rect: Zone,
     zones: Vec<Vec<Zone>>,
     manual_zones_until: usize,
@@ -126,9 +126,9 @@ pub struct Layout {
     positions: Vec<Vec<Position>>,
 }
 
-impl Layout {
+impl Variant {
     fn new(w: i32, h: i32) -> Self {
-        Layout {
+        Variant {
             monitor_rect: Zone::new(0, 0, w, h),
             zones: vec![vec![Zone::new(0, 0, w, h)]],
             manual_zones_until: 1,
@@ -675,15 +675,15 @@ impl Layout {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct LayoutGroup {
-    layouts: Vec<Layout>,
+pub struct Layout {
+    variants: Vec<Variant>,
     default_idx: usize,
 }
 
-impl LayoutGroup {
+impl Layout {
     pub fn new(w: i32, h: i32) -> Self {
-        LayoutGroup {
-            layouts: vec![Layout::new(w, h)],
+        Layout {
+            variants: vec![Variant::new(w, h)],
             default_idx: 0,
         }
     }
@@ -696,28 +696,28 @@ impl LayoutGroup {
         self.default_idx = i;
     }
 
-    pub fn get_layouts(&self) -> &Vec<Layout> {
-        &self.layouts
+    pub fn get_variants(&self) -> &Vec<Variant> {
+        &self.variants
     }
 
-    pub fn get_layouts_mut(&mut self) -> &mut Vec<Layout> {
-        &mut self.layouts
+    pub fn get_variants_mut(&mut self) -> &mut Vec<Variant> {
+        &mut self.variants
     }
 
-    pub fn layouts_len(&self) -> usize {
-        self.layouts.len()
+    pub fn variants_len(&self) -> usize {
+        self.variants.len()
     }
 
     pub fn update_all(&mut self, window_padding: i32, edge_padding: i32) {
-        for layout in self.layouts.iter_mut() {
-            layout.update(window_padding, edge_padding);
+        for variant in self.variants.iter_mut() {
+            variant.update(window_padding, edge_padding);
         }
     }
 
     pub unsafe fn convert_for_monitor(
-        layout_group: &LayoutGroup,
+        layout: &Layout,
         hmonitor: HMONITOR,
-    ) -> Option<LayoutGroup> {
+    ) -> Option<Layout> {
         let mut monitor_info = MONITORINFO::default();
 
         monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
@@ -726,32 +726,32 @@ impl LayoutGroup {
 
         let monitor_rect = Zone::from(monitor_info.rcWork);
 
-        let layout = &layout_group.layouts[layout_group.default_idx];
+        let variant = &layout.variants[layout.default_idx];
 
-        if monitor_rect == layout.monitor_rect {
+        if monitor_rect == variant.monitor_rect {
             return None;
         }
 
-        let original_width = (layout.monitor_rect.right - layout.monitor_rect.left) as f64;
+        let original_width = (variant.monitor_rect.right - variant.monitor_rect.left) as f64;
 
-        let original_height = (layout.monitor_rect.bottom - layout.monitor_rect.top) as f64;
+        let original_height = (variant.monitor_rect.bottom - variant.monitor_rect.top) as f64;
 
         let new_width = (monitor_rect.right - monitor_rect.left) as f64;
 
         let new_height = (monitor_rect.bottom - monitor_rect.top) as f64;
 
-        let mut ret = layout_group.clone();
+        let mut ret = layout.clone();
 
-        for l in ret.layouts.iter_mut() {
+        for l in ret.variants.iter_mut() {
             for zones in l.zones.iter_mut() {
                 for zone in zones {
-                    zone.left -= layout.monitor_rect.left;
+                    zone.left -= variant.monitor_rect.left;
 
-                    zone.top -= layout.monitor_rect.top;
+                    zone.top -= variant.monitor_rect.top;
 
-                    zone.right -= layout.monitor_rect.left;
+                    zone.right -= variant.monitor_rect.left;
 
-                    zone.bottom -= layout.monitor_rect.top;
+                    zone.bottom -= variant.monitor_rect.top;
 
                     if new_width != original_width {
                         zone.left =
@@ -786,7 +786,7 @@ impl LayoutGroup {
     }
 
     pub fn new_variant_from(&mut self, idx: usize) {
-        self.layouts.push(self.layouts[idx].clone());
+        self.variants.push(self.variants[idx].clone());
     }
 
     pub fn swap_variants(&mut self, i: usize, j: usize) {
@@ -804,7 +804,7 @@ impl LayoutGroup {
 
         let second_idx = std::cmp::max(i, j);
 
-        let (first_slice, second_slice) = self.layouts.split_at_mut(second_idx);
+        let (first_slice, second_slice) = self.variants.split_at_mut(second_idx);
 
         std::mem::swap(&mut first_slice[first_idx], &mut second_slice[0]);
     }
