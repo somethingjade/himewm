@@ -6,7 +6,6 @@ use tray_icon::{
 use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
 
 mod menu_ids {
-
     pub const QUIT: &str = "quit";
 }
 
