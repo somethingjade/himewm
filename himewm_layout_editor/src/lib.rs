@@ -575,9 +575,13 @@ impl EditorWidgets {
         .unwrap();
 
         variant_state_display_group.remove_by_index(second_idx as i32);
+
         variant_state_display_group.remove_by_index(first_idx as i32);
+        
         variant_state_display_group.insert(second_variant_state_display, first_idx as i32);
+        
         variant_state_display_group.insert(first_variant_state_display, second_idx as i32);
+        
         sender.send(Message::SelectedVariantStateChanged(swap_with));
     }
 
