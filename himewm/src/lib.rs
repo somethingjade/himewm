@@ -198,12 +198,11 @@ impl WindowManager {
 
         for layout in layouts {
             for (hmonitor, layouts) in self.layouts.iter_mut() {
-                let mut layout =
-                    match Layout::convert_for_monitor(&layout, HMONITOR(*hmonitor)) {
-                        Some(val) => val,
+                let mut layout = match Layout::convert_for_monitor(&layout, HMONITOR(*hmonitor)) {
+                    Some(val) => val,
 
-                        None => layout.clone(),
-                    };
+                    None => layout.clone(),
+                };
 
                 layout.update_all(self.settings.window_padding, self.settings.edge_padding);
 

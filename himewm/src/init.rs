@@ -143,12 +143,11 @@ pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
         match entry_result {
             Ok(entry) => match std::fs::read(entry.path()) {
                 Ok(byte_vector) => {
-                    let layout: Layout =
-                        match serde_json::from_slice(byte_vector.as_slice()) {
-                            Ok(val) => val,
+                    let layout: Layout = match serde_json::from_slice(byte_vector.as_slice()) {
+                        Ok(val) => val,
 
-                            Err(_) => continue,
-                        };
+                        Err(_) => continue,
+                    };
 
                     let layout_name = std::path::Path::new(&entry.file_name()).with_extension("");
 

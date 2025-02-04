@@ -36,12 +36,7 @@ fn main() {
 
         let mut wm = himewm::WindowManager::new(user_settings.to_settings(&layouts));
 
-        wm.initialize(
-            layouts
-                .into_iter()
-                .map(|(_, layout)| layout)
-                .collect(),
-        );
+        wm.initialize(layouts.into_iter().map(|(_, layout)| layout).collect());
 
         while GetMessageA(&mut msg, None, 0, 0).as_bool() {
             himewm::handle_message(msg, &mut wm);

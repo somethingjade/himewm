@@ -714,10 +714,7 @@ impl Layout {
         }
     }
 
-    pub unsafe fn convert_for_monitor(
-        layout: &Layout,
-        hmonitor: HMONITOR,
-    ) -> Option<Layout> {
+    pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option<Layout> {
         let mut monitor_info = MONITORINFO::default();
 
         monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
