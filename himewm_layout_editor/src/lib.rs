@@ -127,7 +127,7 @@ impl EditorWidgets {
         return ret;
     }
 
-    fn group_from_variant_state(
+    fn display_group_from_variant_state(
         variant: &Variant,
         idx: usize,
         sender: &app::Sender<Message>,
@@ -323,7 +323,7 @@ impl EditorWidgets {
             let mut layout = group::Group::default_fill();
 
             for i in 0..variant.manual_zones_until() {
-                let mut g = Self::group_from_variant_state(variant, i, sender);
+                let mut g = Self::display_group_from_variant_state(variant, i, sender);
 
                 g.hide();
             }
@@ -417,7 +417,7 @@ impl EditorWidgets {
     fn new_variant_state(&mut self, sender: &app::Sender<Message>) {
         let variant_idx = self.editor.selected_variant_idx;
 
-        let variant_variant_state_pack = &mut group::Pack::from_dyn_widget(
+        let variant_state_pack = &mut group::Pack::from_dyn_widget(
             &self
                 .variant_state_selection
                 .child(variant_idx as i32)
@@ -425,11 +425,11 @@ impl EditorWidgets {
         )
         .unwrap();
 
-        variant_variant_state_pack.begin();
+        variant_state_pack.begin();
 
         let mut b = button::Button::default()
             .with_size(64, 0)
-            .with_label(variant_variant_state_pack.children().to_string().as_str());
+            .with_label(variant_state_pack.children().to_string().as_str());
 
         b.set_color(Color::Background2);
 
@@ -437,28 +437,31 @@ impl EditorWidgets {
 
         b.emit(
             sender.clone(),
-            Message::SelectedVariantStateChanged(variant_variant_state_pack.children() as usize - 1),
+            Message::SelectedVariantStateChanged(variant_state_pack.children() as usize - 1),
         );
 
-        variant_variant_state_pack.end();
+        variant_state_pack.end();
 
-        let variant_variant_state_display_group = &mut group::Group::from_dyn_widget(
-            &self.variant_state_display.child(variant_idx as i32).unwrap(),
+        let variant_state_display_group = &mut group::Group::from_dyn_widget(
+            &self
+                .variant_state_display
+                .child(variant_idx as i32)
+                .unwrap(),
         )
         .unwrap();
 
-        variant_variant_state_display_group.begin();
+        variant_state_display_group.begin();
 
-        let _g = Self::group_from_variant_state(
+        let _g = Self::display_group_from_variant_state(
             &self.editor.layout.get_variants()[variant_idx],
-            variant_variant_state_pack.children() as usize - 1,
+            variant_state_pack.children() as usize - 1,
             sender,
         );
 
-        variant_variant_state_display_group.end();
+        variant_state_display_group.end();
 
         sender.send(Message::SelectedVariantStateChanged(
-            variant_variant_state_pack.children() as usize - 1,
+            variant_state_pack.children() as usize - 1,
         ));
     }
 
@@ -467,51 +470,142 @@ impl EditorWidgets {
 
         let variant_state_idx = self.editor.selected_variant_state_idx;
 
-        let variant_variant_state_pack = &mut group::Pack::from_dyn_widget(
+        let variant_state_pack = &mut group::Pack::from_dyn_widget(
             &self
                 .variant_state_selection
                 .child(variant_idx as i32)
                 .unwrap(),
         )
         .unwrap();
-        
-        WidgetBase::delete(variant_variant_state_pack.child(variant_state_idx as i32).unwrap());
 
-        let variant_variant_state_display_group = &mut group::Group::from_dyn_widget(
-            &self.variant_state_display.child(variant_idx as i32).unwrap(),
+        WidgetBase::delete(variant_state_pack.child(variant_state_idx as i32).unwrap());
+
+        let variant_state_display_group = &mut group::Group::from_dyn_widget(
+            &self
+                .variant_state_display
+                .child(variant_idx as i32)
+                .unwrap(),
         )
         .unwrap();
 
-        WidgetBase::delete(variant_variant_state_display_group.child(variant_state_idx as i32).unwrap());
+        WidgetBase::delete(
+            variant_state_display_group
+                .child(variant_state_idx as i32)
+                .unwrap(),
+        );
 
-        self.decrement_all_variant_variant_state_buttons_after(variant_idx, variant_state_idx, sender);
+        self.decrement_all_variant_state_buttons_after(variant_idx, variant_state_idx, sender);
 
-        if variant_state_idx == self.editor.layout.get_variants()[self.editor.selected_variant_idx].manual_zones_until() {
+        if variant_state_idx
+            == self.editor.layout.get_variants()[self.editor.selected_variant_idx]
+                .manual_zones_until()
+        {
             self.editor.selected_variant_state_idx -= 1;
         }
 
-        sender.send(Message::SelectedVariantStateChanged(self.editor.selected_variant_state_idx));
-
+        sender.send(Message::SelectedVariantStateChanged(
+            self.editor.selected_variant_state_idx,
+        ));
     }
 
-    fn decrement_all_variant_variant_state_buttons_after(&mut self, variant_idx: usize, variant_state_idx: usize, sender: &app::Sender<Message>) {
-        let variant_variant_state_pack = &mut group::Pack::from_dyn_widget(
+    fn swap_variant_states(&mut self, swap_with: usize, sender: &app::Sender<Message>) {
+        let variant_idx = self.editor.selected_variant_idx;
+
+        let first_idx = std::cmp::min(self.editor.selected_variant_state_idx, swap_with);
+        let second_idx = std::cmp::max(self.editor.selected_variant_state_idx, swap_with);
+
+        let variant_state_pack = &mut group::Pack::from_dyn_widget(
             &self
                 .variant_state_selection
                 .child(variant_idx as i32)
                 .unwrap(),
         )
         .unwrap();
-        
-        for i in variant_state_idx as i32..variant_variant_state_pack.children() {
-            let b = &mut button::Button::from_dyn_widget(&variant_variant_state_pack.child(i).unwrap()).unwrap();
+
+        let first_button = &mut button::Button::from_dyn_widget(
+            &variant_state_pack.child(first_idx as i32).unwrap(),
+        )
+        .unwrap();
+
+        let second_button = &mut button::Button::from_dyn_widget(
+            &variant_state_pack.child(second_idx as i32).unwrap(),
+        )
+        .unwrap();
+
+        variant_state_pack.remove_by_index(second_idx as i32);
+
+        variant_state_pack.remove_by_index(first_idx as i32);
+
+        first_button.set_label((second_idx + 1).to_string().as_str());
+
+        first_button.emit(
+            sender.clone(),
+            Message::SelectedVariantStateChanged(second_idx),
+        );
+
+        second_button.set_label((first_idx + 1).to_string().as_str());
+
+        second_button.emit(
+            sender.clone(),
+            Message::SelectedVariantStateChanged(first_idx),
+        );
+
+        variant_state_pack.insert(second_button, first_idx as i32);
+
+        variant_state_pack.insert(first_button, second_idx as i32);
+
+        let variant_state_display_group = &mut group::Group::from_dyn_widget(
+            &self
+                .variant_state_display
+                .child(variant_idx as i32)
+                .unwrap(),
+        )
+        .unwrap();
+
+        let first_variant_state_display = &group::Group::from_dyn_widget(
+            &variant_state_display_group.child(first_idx as i32).unwrap(),
+        )
+        .unwrap();
+
+        let second_variant_state_display = &group::Group::from_dyn_widget(
+            &variant_state_display_group
+                .child(second_idx as i32)
+                .unwrap(),
+        )
+        .unwrap();
+
+        variant_state_display_group.remove_by_index(second_idx as i32);
+        variant_state_display_group.remove_by_index(first_idx as i32);
+        variant_state_display_group.insert(second_variant_state_display, first_idx as i32);
+        variant_state_display_group.insert(first_variant_state_display, second_idx as i32);
+        sender.send(Message::SelectedVariantStateChanged(swap_with));
+    }
+
+    fn decrement_all_variant_state_buttons_after(
+        &mut self,
+        variant_idx: usize,
+        variant_state_idx: usize,
+        sender: &app::Sender<Message>,
+    ) {
+        let variant_state_pack = &mut group::Pack::from_dyn_widget(
+            &self
+                .variant_state_selection
+                .child(variant_idx as i32)
+                .unwrap(),
+        )
+        .unwrap();
+
+        for i in variant_state_idx as i32..variant_state_pack.children() {
+            let b = &mut button::Button::from_dyn_widget(&variant_state_pack.child(i).unwrap())
+                .unwrap();
 
             b.set_label((i + 1).to_string().as_str());
 
-            b.emit(sender.clone(), Message::SelectedVariantStateChanged(i as usize));
+            b.emit(
+                sender.clone(),
+                Message::SelectedVariantStateChanged(i as usize),
+            );
         }
-
-
     }
 }
 
@@ -622,8 +716,7 @@ impl LayoutEditorGUI {
 
                     variant.new_zone_vec();
 
-                    editor_widgets
-                        .new_variant_state(&self.sender);
+                    editor_widgets.new_variant_state(&self.sender);
                 }
 
                 Message::DuplicateVariantState => {
@@ -634,8 +727,7 @@ impl LayoutEditorGUI {
 
                     variant.clone_zone_vec(idx);
 
-                    editor_widgets
-                        .new_variant_state(&self.sender);
+                    editor_widgets.new_variant_state(&self.sender);
                 }
 
                 Message::DeleteVariantState => {
@@ -649,7 +741,30 @@ impl LayoutEditorGUI {
                     editor_widgets.delete_variant_state(&self.sender);
                 }
 
-                Message::SwapVariantState(swap_direction) => {}
+                Message::SwapVariantState(swap_direction) => {
+                    let variant = &mut editor_widgets.editor.layout.get_variants_mut()
+                        [editor_widgets.editor.selected_variant_idx];
+
+                    let selected_variant_state_idx =
+                        editor_widgets.editor.selected_variant_state_idx;
+
+                    let swap_with = match swap_direction {
+                        SwapDirection::Previous if selected_variant_state_idx != 0 => {
+                            selected_variant_state_idx - 1
+                        }
+                        SwapDirection::Next
+                            if editor_widgets.editor.selected_variant_state_idx
+                                != variant.manual_zones_until() - 1 =>
+                        {
+                            selected_variant_state_idx + 1
+                        }
+                        _ => return,
+                    };
+
+                    variant.swap_zone_vectors(selected_variant_state_idx, swap_with);
+
+                    editor_widgets.swap_variant_states(swap_with, &self.sender);
+                }
             }
         }
     }
