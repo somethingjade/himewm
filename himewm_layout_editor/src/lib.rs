@@ -391,26 +391,72 @@ impl EditorWidgets {
     }
 
     fn update_shown_variant_state(&mut self, old_idx: (usize, usize), new_idx: (usize, usize)) {
-        if let Some(old_layout) = &mut self.variant_state_display.child(old_idx.0 as i32) {
-            if let Some(old_group) = &mut group::Group::from_dyn_widget(old_layout)
+        if let Some(old_variant) = &mut self.variant_state_display.child(old_idx.0 as i32) {
+            if let Some(old_group) = &mut group::Group::from_dyn_widget(old_variant)
                 .unwrap()
                 .child(old_idx.1 as i32)
             {
                 old_group.hide();
             }
 
-            old_layout.hide();
+            old_variant.hide();
         }
 
-        if let Some(new_layout) = &mut self.variant_state_display.child(new_idx.0 as i32) {
-            if let Some(new_group) = &mut group::Group::from_dyn_widget(new_layout)
+        if let Some(new_variant) = &mut self.variant_state_display.child(new_idx.0 as i32) {
+            if let Some(new_group) = &mut group::Group::from_dyn_widget(new_variant)
                 .unwrap()
                 .child(new_idx.1 as i32)
             {
                 new_group.show();
             }
 
-            new_layout.show();
+            new_variant.show();
+        }
+    }
+
+    fn highlight_selected_zone(&mut self, idx: usize) {
+        let selected_variant_idx = self.editor.selected_variant_idx;
+
+        let selected_variant_state_idx = self.editor.selected_variant_state_idx;
+
+        if let Some(variant) = group::Group::from_dyn_widget(
+            &self
+                .variant_state_display
+                .child(selected_variant_idx as i32)
+                .unwrap(),
+        ) {
+            if let Some(group) = group::Group::from_dyn_widget(
+                &variant.child(selected_variant_state_idx as i32).unwrap(),
+            ) {
+                if let Some(zone_button) =
+                    &mut button::Button::from_dyn_widget(&group.child(idx as i32).unwrap())
+                {
+                    zone_button.set_color(colors::html::DodgerBlue);
+
+                    zone_button.redraw();
+                }
+            }
+        }
+    }
+
+    fn dehighlight_zone(&mut self, variant_idx: usize, variant_state_idx: usize, zone_idx: usize) {
+        if let Some(variant) = group::Group::from_dyn_widget(
+            &self
+                .variant_state_display
+                .child(variant_idx as i32)
+                .unwrap(),
+        ) {
+            if let Some(group) =
+                group::Group::from_dyn_widget(&variant.child(variant_state_idx as i32).unwrap())
+            {
+                if let Some(zone_button) =
+                    &mut button::Button::from_dyn_widget(&group.child(zone_idx as i32).unwrap())
+                {
+                    zone_button.set_color(colors::html::Gainsboro);
+
+                    zone_button.redraw();
+                }
+            }
         }
     }
 
@@ -710,9 +756,42 @@ impl LayoutEditorGUI {
 
                     editor_widgets
                         .update_shown_variant_state((variant_idx, old_idx), (variant_idx, idx));
+
+                    if let Some(zone_idx) = editor_widgets.editor.selected_zone_idx1 {
+                        editor_widgets.dehighlight_zone(variant_idx, old_idx, zone_idx);
+
+                        editor_widgets.editor.selected_zone_idx1 = None;
+                    }
+
+                    if let Some(zone_idx) = editor_widgets.editor.selected_zone_idx2 {
+                        editor_widgets.dehighlight_zone(variant_idx, old_idx, zone_idx);
+
+                        editor_widgets.editor.selected_zone_idx2 = None;
+                    }
                 }
 
-                Message::SelectedZoneChanged(idx) => {}
+                Message::SelectedZoneChanged(idx) => {
+                    let selected_variant_idx = editor_widgets.editor.selected_variant_idx;
+
+                    let selected_variant_state_idx =
+                        editor_widgets.editor.selected_variant_state_idx;
+
+                    if let Some(old_idx) = editor_widgets.editor.selected_zone_idx1 {
+                        editor_widgets.dehighlight_zone(
+                            selected_variant_idx,
+                            selected_variant_state_idx,
+                            old_idx,
+                        );
+
+                        if old_idx == idx {
+                            return;
+                        }
+                    }
+
+                    editor_widgets.editor.selected_zone_idx1 = Some(idx);
+
+                    editor_widgets.highlight_selected_zone(idx);
+                }
 
                 Message::NewVariantState => {
                     let variant = &mut editor_widgets.editor.layout.get_variants_mut()
