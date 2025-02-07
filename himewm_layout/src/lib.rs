@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use windows::Win32::{Foundation::*, Graphics::Gdi::*};
+use windows::Win32::Foundation::*;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Direction {
@@ -141,8 +141,16 @@ impl Variant {
         &self.zones
     }
 
+    pub fn get_zones_mut(&mut self) -> &mut Vec<Vec<Zone>> {
+        &mut self.zones
+    }
+
     pub fn get_monitor_rect(&self) -> &Zone {
         &self.monitor_rect
+    }
+
+    pub fn set_monitor_rect(&mut self, zone: Zone) {
+        self.monitor_rect = zone;
     }
 
     pub fn delete_zones(&mut self, i: usize) {
@@ -712,74 +720,6 @@ impl Layout {
         for variant in self.variants.iter_mut() {
             variant.update(window_padding, edge_padding);
         }
-    }
-
-    pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option<Layout> {
-        let mut monitor_info = MONITORINFO::default();
-
-        monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
-
-        let _ = GetMonitorInfoA(hmonitor, &mut monitor_info);
-
-        let monitor_rect = Zone::from(monitor_info.rcWork);
-
-        let variant = &layout.variants[layout.default_idx];
-
-        if monitor_rect == variant.monitor_rect {
-            return None;
-        }
-
-        let original_width = (variant.monitor_rect.right - variant.monitor_rect.left) as f64;
-
-        let original_height = (variant.monitor_rect.bottom - variant.monitor_rect.top) as f64;
-
-        let new_width = (monitor_rect.right - monitor_rect.left) as f64;
-
-        let new_height = (monitor_rect.bottom - monitor_rect.top) as f64;
-
-        let mut ret = layout.clone();
-
-        for l in ret.variants.iter_mut() {
-            for zones in l.zones.iter_mut() {
-                for zone in zones {
-                    zone.left -= variant.monitor_rect.left;
-
-                    zone.top -= variant.monitor_rect.top;
-
-                    zone.right -= variant.monitor_rect.left;
-
-                    zone.bottom -= variant.monitor_rect.top;
-
-                    if new_width != original_width {
-                        zone.left =
-                            ((zone.left as f64 * new_width) / original_width).round() as i32;
-
-                        zone.right =
-                            ((zone.right as f64 * new_width) / original_width).round() as i32;
-                    }
-
-                    if new_height != original_height {
-                        zone.top =
-                            ((zone.top as f64 * new_height) / original_height).round() as i32;
-
-                        zone.bottom =
-                            ((zone.bottom as f64 * new_height) / original_height).round() as i32;
-                    }
-
-                    zone.left += (&monitor_rect).left;
-
-                    zone.top += (&monitor_rect).top;
-
-                    zone.right += (&monitor_rect).left;
-
-                    zone.bottom += (&monitor_rect).top;
-                }
-            }
-
-            l.monitor_rect = monitor_rect.clone();
-        }
-
-        return Some(ret);
     }
 
     pub fn new_variant_from(&mut self, idx: usize) {
