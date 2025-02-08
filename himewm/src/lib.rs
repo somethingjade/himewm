@@ -197,6 +197,8 @@ impl WindowManager {
         );
 
         for layout in layouts {
+            let monitor_rect = layout.get_monitor_rect();
+
             for (hmonitor, layouts) in self.layouts.iter_mut() {
                 let mut layout = match convert_for_monitor(&layout, HMONITOR(*hmonitor)) {
                     Some(val) => val,
@@ -204,7 +206,7 @@ impl WindowManager {
                     None => layout.clone(),
                 };
 
-                layout.update_all(self.settings.window_padding, self.settings.edge_padding);
+                layout.update_all(self.settings.window_padding, self.settings.edge_padding, monitor_rect);
 
                 layouts.push(layout);
             }
@@ -589,17 +591,20 @@ impl WindowManager {
 
         {
             let positions = if changed_monitors {
-                let layout = &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()
-                    [workspace.layout_idx]
+                let layout = &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
+
+                let monitor_rect = layout.get_monitor_rect().to_owned();
+
+                let variant = &mut layout
                     .get_variants_mut()[workspace.variant_idx];
 
-                while layout.positions_len() < workspace.managed_window_handles.len() + 1 {
-                    layout.extend();
+                while variant.positions_len() < workspace.managed_window_handles.len() {
+                    variant.extend();
 
-                    layout.update(self.settings.window_padding, self.settings.edge_padding);
+                    variant.update(self.settings.window_padding, self.settings.edge_padding, &monitor_rect);
                 }
 
-                layout.get_positions_at(workspace.managed_window_handles.len())
+                variant.get_positions_at(workspace.managed_window_handles.len())
             } else {
                 self.layouts.get(&original_monitor_handle.0).unwrap()[workspace.layout_idx]
                     .get_variants()[workspace.variant_idx]
@@ -1355,18 +1360,22 @@ impl WindowManager {
             return;
         }
 
-        let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx]
+        let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];
+
+        let monitor_rect = layout.get_monitor_rect().to_owned();
+
+        let variant = &mut layout
             .get_variants_mut()[workspace.variant_idx];
 
-        while layout.positions_len() < workspace.managed_window_handles.len() {
-            layout.extend();
+        while variant.positions_len() < workspace.managed_window_handles.len() {
+            variant.extend();
 
-            layout.update(self.settings.window_padding, self.settings.edge_padding);
+            variant.update(self.settings.window_padding, self.settings.edge_padding, &monitor_rect);
         }
 
         let mut error_indices: Option<Vec<usize>> = None;
 
-        let positions = layout.get_positions_at(workspace.managed_window_handles.len() - 1);
+        let positions = variant.get_positions_at(workspace.managed_window_handles.len() - 1);
 
         for (i, hwnd) in workspace.managed_window_handles.iter().enumerate() {
             match SetWindowPos(
@@ -1741,9 +1750,7 @@ pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
 
     let monitor_rect = Zone::from(monitor_info.rcWork);
 
-    let variant = &layout.get_variants()[layout.default_idx()];
-
-    let variant_monitor_rect = variant.get_monitor_rect();
+    let variant_monitor_rect = layout.get_monitor_rect();
 
     if &monitor_rect == variant_monitor_rect {
         return None;
@@ -1795,9 +1802,9 @@ pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
                 zone.bottom += (&monitor_rect).top;
             }
         }
-
-        l.set_monitor_rect(monitor_rect.clone());
     }
+
+    ret.set_monitor_rect(monitor_rect.clone());
 
     return Some(ret);
 }

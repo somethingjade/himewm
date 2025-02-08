@@ -119,7 +119,6 @@ pub struct Position {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Variant {
-    monitor_rect: Zone,
     zones: Vec<Vec<Zone>>,
     manual_zones_until: usize,
     end_tiling_behaviour: EndTilingBehaviour,
@@ -129,7 +128,6 @@ pub struct Variant {
 impl Variant {
     fn new(w: i32, h: i32) -> Self {
         Variant {
-            monitor_rect: Zone::new(0, 0, w, h),
             zones: vec![vec![Zone::new(0, 0, w, h)]],
             manual_zones_until: 1,
             end_tiling_behaviour: EndTilingBehaviour::default_directional(),
@@ -143,14 +141,6 @@ impl Variant {
 
     pub fn get_zones_mut(&mut self) -> &mut Vec<Vec<Zone>> {
         &mut self.zones
-    }
-
-    pub fn get_monitor_rect(&self) -> &Zone {
-        &self.monitor_rect
-    }
-
-    pub fn set_monitor_rect(&mut self, zone: Zone) {
-        self.monitor_rect = zone;
     }
 
     pub fn delete_zones(&mut self, i: usize) {
@@ -185,7 +175,7 @@ impl Variant {
         self.positions.len()
     }
 
-    pub fn update(&mut self, window_padding: i32, edge_padding: i32) {
+    pub fn update(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
         match &mut self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction: _,
@@ -218,23 +208,23 @@ impl Variant {
                     cy: zone.h() + 7 - 2 * window_padding,
                 };
 
-                if zone.left == self.monitor_rect.left {
+                if zone.left == monitor_rect.left {
                     position.x = position.x - window_padding + edge_padding;
 
                     position.cx = position.cx + window_padding - edge_padding;
                 }
 
-                if zone.top == self.monitor_rect.top {
+                if zone.top == monitor_rect.top {
                     position.y = position.y - window_padding + edge_padding;
 
                     position.cy = position.cy + window_padding - edge_padding;
                 }
 
-                if zone.right == self.monitor_rect.right {
+                if zone.right == monitor_rect.right {
                     position.cx = position.cx + window_padding - edge_padding;
                 }
 
-                if zone.bottom == self.monitor_rect.bottom {
+                if zone.bottom == monitor_rect.bottom {
                     position.cy = position.cy + window_padding - edge_padding;
                 }
 
@@ -403,12 +393,12 @@ impl Variant {
         }
     }
 
-    pub fn new_zone_vec(&mut self) {
+    pub fn new_zone_vec(&mut self, w: i32, h: i32) {
         self.zones.push(vec![Zone::new(
-            self.monitor_rect.left,
-            self.monitor_rect.top,
-            self.monitor_rect.right,
-            self.monitor_rect.bottom,
+            0,
+            0,
+            w,
+            h,
         )]);
 
         self.manual_zones_until += 1;
@@ -684,6 +674,7 @@ impl Variant {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Layout {
+    monitor_rect: Zone,
     variants: Vec<Variant>,
     default_idx: usize,
 }
@@ -691,17 +682,18 @@ pub struct Layout {
 impl Layout {
     pub fn new(w: i32, h: i32) -> Self {
         Layout {
+            monitor_rect: Zone::new(0, 0, w, h),
             variants: vec![Variant::new(w, h)],
             default_idx: 0,
         }
     }
 
-    pub fn default_idx(&self) -> usize {
-        self.default_idx
+    pub fn get_monitor_rect(&self) -> &Zone {
+        &self.monitor_rect
     }
 
-    pub fn set_default_idx(&mut self, i: usize) {
-        self.default_idx = i;
+    pub fn set_monitor_rect(&mut self, zone: Zone) {
+        self.monitor_rect = zone;
     }
 
     pub fn get_variants(&self) -> &Vec<Variant> {
@@ -716,9 +708,17 @@ impl Layout {
         self.variants.len()
     }
 
-    pub fn update_all(&mut self, window_padding: i32, edge_padding: i32) {
+    pub fn default_idx(&self) -> usize {
+        self.default_idx
+    }
+
+    pub fn set_default_idx(&mut self, i: usize) {
+        self.default_idx = i;
+    }
+
+    pub fn update_all(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
         for variant in self.variants.iter_mut() {
-            variant.update(window_padding, edge_padding);
+            variant.update(window_padding, edge_padding, monitor_rect);
         }
     }
 
