@@ -206,7 +206,11 @@ impl WindowManager {
                     None => layout.clone(),
                 };
 
-                layout.update_all(self.settings.window_padding, self.settings.edge_padding, monitor_rect);
+                layout.update_all(
+                    self.settings.window_padding,
+                    self.settings.edge_padding,
+                    monitor_rect,
+                );
 
                 layouts.push(layout);
             }
@@ -591,17 +595,21 @@ impl WindowManager {
 
         {
             let positions = if changed_monitors {
-                let layout = &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
+                let layout =
+                    &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
 
                 let monitor_rect = layout.get_monitor_rect().to_owned();
 
-                let variant = &mut layout
-                    .get_variants_mut()[workspace.variant_idx];
+                let variant = &mut layout.get_variants_mut()[workspace.variant_idx];
 
                 while variant.positions_len() < workspace.managed_window_handles.len() {
                     variant.extend();
 
-                    variant.update(self.settings.window_padding, self.settings.edge_padding, &monitor_rect);
+                    variant.update(
+                        self.settings.window_padding,
+                        self.settings.edge_padding,
+                        &monitor_rect,
+                    );
                 }
 
                 variant.get_positions_at(workspace.managed_window_handles.len())
@@ -1364,13 +1372,16 @@ impl WindowManager {
 
         let monitor_rect = layout.get_monitor_rect().to_owned();
 
-        let variant = &mut layout
-            .get_variants_mut()[workspace.variant_idx];
+        let variant = &mut layout.get_variants_mut()[workspace.variant_idx];
 
         while variant.positions_len() < workspace.managed_window_handles.len() {
             variant.extend();
 
-            variant.update(self.settings.window_padding, self.settings.edge_padding, &monitor_rect);
+            variant.update(
+                self.settings.window_padding,
+                self.settings.edge_padding,
+                &monitor_rect,
+            );
         }
 
         let mut error_indices: Option<Vec<usize>> = None;
@@ -1778,16 +1789,13 @@ pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
                 zone.bottom -= variant_monitor_rect.top;
 
                 if new_width != original_width {
-                    zone.left =
-                        ((zone.left as f64 * new_width) / original_width).round() as i32;
+                    zone.left = ((zone.left as f64 * new_width) / original_width).round() as i32;
 
-                    zone.right =
-                        ((zone.right as f64 * new_width) / original_width).round() as i32;
+                    zone.right = ((zone.right as f64 * new_width) / original_width).round() as i32;
                 }
 
                 if new_height != original_height {
-                    zone.top =
-                        ((zone.top as f64 * new_height) / original_height).round() as i32;
+                    zone.top = ((zone.top as f64 * new_height) / original_height).round() as i32;
 
                     zone.bottom =
                         ((zone.bottom as f64 * new_height) / original_height).round() as i32;
