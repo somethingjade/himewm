@@ -8,6 +8,15 @@ pub enum Direction {
     Vertical,
 }
 
+impl Direction {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Direction::Horizontal => Direction::Vertical,
+            Direction::Vertical => Direction::Horizontal,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SplitDirection {
     Horizontal(i32),
@@ -394,12 +403,7 @@ impl Variant {
     }
 
     pub fn new_zone_vec(&mut self, w: i32, h: i32) {
-        self.zones.push(vec![Zone::new(
-            0,
-            0,
-            w,
-            h,
-        )]);
+        self.zones.push(vec![Zone::new(0, 0, w, h)]);
 
         self.manual_zones_until += 1;
     }
