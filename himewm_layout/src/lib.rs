@@ -9,7 +9,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn opposite(&self) -> Self {
+    pub fn other(&self) -> Self {
         match self {
             Direction::Horizontal => Direction::Vertical,
             Direction::Vertical => Direction::Horizontal,
