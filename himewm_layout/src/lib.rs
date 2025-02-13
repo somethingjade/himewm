@@ -135,7 +135,7 @@ pub struct Variant {
 }
 
 impl Variant {
-    fn new(w: i32, h: i32) -> Self {
+    pub fn new(w: i32, h: i32) -> Self {
         Variant {
             zones: vec![vec![Zone::new(0, 0, w, h)]],
             manual_zones_until: 1,
