@@ -726,7 +726,11 @@ impl Layout {
         }
     }
 
-    pub fn new_variant_from(&mut self, idx: usize) {
+    pub fn new_variant(&mut self) {
+        self.variants.push(Variant::new(self.monitor_rect.right, self.monitor_rect.bottom));
+    }
+
+    pub fn clone_variant(&mut self, idx: usize) {
         self.variants.push(self.variants[idx].clone());
     }
 
