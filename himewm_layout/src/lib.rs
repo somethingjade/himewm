@@ -753,4 +753,8 @@ impl Layout {
 
         std::mem::swap(&mut first_slice[first_idx], &mut second_slice[0]);
     }
+
+    pub fn delete_variant(&mut self, idx: usize) {
+        self.variants.remove(idx);
+    }
 }
