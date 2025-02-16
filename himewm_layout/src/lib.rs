@@ -756,5 +756,12 @@ impl Layout {
 
     pub fn delete_variant(&mut self, idx: usize) {
         self.variants.remove(idx);
+
+        if idx == self.default_idx {
+            self.default_idx = 0;
+        }
+        else if idx < self.default_idx {
+            self.default_idx -= 1;
+        }
     }
 }
