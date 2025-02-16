@@ -420,7 +420,7 @@ impl WindowManager {
                             self.settings.default_layout_idx,
                             self.layouts.get(&monitor_handle.0).unwrap()
                                 [self.settings.default_layout_idx]
-                                .default_idx(),
+                                .default_variant_idx(),
                         ),
                     );
 
@@ -565,7 +565,7 @@ impl WindowManager {
                             self.settings.default_layout_idx,
                             self.layouts.get(&new_monitor_handle.0).unwrap()
                                 [self.settings.default_layout_idx]
-                                .default_idx(),
+                                .default_variant_idx(),
                         ),
                     );
 
@@ -892,7 +892,7 @@ impl WindowManager {
             }
         }
 
-        workspace.variant_idx = layouts[workspace.layout_idx].default_idx();
+        workspace.variant_idx = layouts[workspace.layout_idx].default_variant_idx();
 
         self.update_workspace(desktop_id, monitor_handle);
     }
@@ -1078,7 +1078,7 @@ impl WindowManager {
                         self.settings.default_layout_idx,
                         self.layouts.get(&new_monitor_handle.0).unwrap()
                             [self.settings.default_layout_idx]
-                            .default_idx(),
+                            .default_variant_idx(),
                     ),
                 );
 
@@ -1544,7 +1544,7 @@ impl WindowManager {
                             self.settings.default_layout_idx,
                             self.layouts.get(&window_info.monitor_handle.0).unwrap()
                                 [self.settings.default_layout_idx]
-                                .default_idx(),
+                                .default_variant_idx(),
                         ),
                     );
                 }

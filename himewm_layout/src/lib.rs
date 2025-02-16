@@ -680,7 +680,7 @@ impl Variant {
 pub struct Layout {
     monitor_rect: Zone,
     variants: Vec<Variant>,
-    default_idx: usize,
+    default_variant_idx: usize,
 }
 
 impl Layout {
@@ -688,7 +688,7 @@ impl Layout {
         Layout {
             monitor_rect: Zone::new(0, 0, w, h),
             variants: vec![Variant::new(w, h)],
-            default_idx: 0,
+            default_variant_idx: 0,
         }
     }
 
@@ -712,12 +712,12 @@ impl Layout {
         self.variants.len()
     }
 
-    pub fn default_idx(&self) -> usize {
-        self.default_idx
+    pub fn default_variant_idx(&self) -> usize {
+        self.default_variant_idx
     }
 
-    pub fn set_default_idx(&mut self, i: usize) {
-        self.default_idx = i;
+    pub fn set_default_variant_idx(&mut self, i: usize) {
+        self.default_variant_idx = i;
     }
 
     pub fn update_all(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
@@ -727,7 +727,10 @@ impl Layout {
     }
 
     pub fn new_variant(&mut self) {
-        self.variants.push(Variant::new(self.monitor_rect.right, self.monitor_rect.bottom));
+        self.variants.push(Variant::new(
+            self.monitor_rect.right,
+            self.monitor_rect.bottom,
+        ));
     }
 
     pub fn clone_variant(&mut self, idx: usize) {
@@ -739,10 +742,10 @@ impl Layout {
             return;
         }
 
-        if self.default_idx == i {
-            self.default_idx = j;
-        } else if self.default_idx == j {
-            self.default_idx = i;
+        if self.default_variant_idx == i {
+            self.default_variant_idx = j;
+        } else if self.default_variant_idx == j {
+            self.default_variant_idx = i;
         }
 
         let first_idx = std::cmp::min(i, j);
@@ -757,11 +760,10 @@ impl Layout {
     pub fn delete_variant(&mut self, idx: usize) {
         self.variants.remove(idx);
 
-        if idx == self.default_idx {
-            self.default_idx = 0;
-        }
-        else if idx < self.default_idx {
-            self.default_idx -= 1;
+        if idx == self.default_variant_idx {
+            self.default_variant_idx = 0;
+        } else if idx < self.default_variant_idx {
+            self.default_variant_idx -= 1;
         }
     }
 }
