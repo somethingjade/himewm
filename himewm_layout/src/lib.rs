@@ -598,7 +598,7 @@ impl Variant {
                     }
                 }
 
-                for i in ((zone_idx + 1)..(self.zones.len() - 1)).rev() {
+                for i in (self.manual_zones_until..(self.zones.len() - 1)).rev() {
                     self.swap_zones(self.zones.len() - 1, zone_idx, i);
                 }
             }
