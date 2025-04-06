@@ -282,6 +282,22 @@ impl Variant {
         }
     }
 
+    pub fn get_end_tiling_direction(&self) -> Option<Direction> {
+        match &self.end_tiling_behaviour {
+            EndTilingBehaviour::Directional {
+                direction,
+                start_from: _,
+                from_zones: _,
+                zone_idx: _,
+            } => return Some(direction.to_owned()),
+
+            EndTilingBehaviour::Repeating {
+                splits: _,
+                zone_idx: _,
+            } => return None,
+        }
+    }
+
     pub fn set_end_tiling_direction(&mut self, new_direction: Direction) {
         match &mut self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
