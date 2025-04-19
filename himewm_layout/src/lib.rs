@@ -188,7 +188,7 @@ impl Variant {
                 direction: _,
                 from_zones,
                 zone_idx: _,
-            } if self.zones[self.zones.len() - 1].len() < self.zones.len() => {
+            } if matches!(from_zones, None) && self.zones[self.zones.len() - 1].len() < self.zones.len() => {
                 *from_zones = self.zones.pop();
 
                 self.manual_zones_until -= 1;
