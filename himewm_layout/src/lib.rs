@@ -182,7 +182,7 @@ impl Variant {
         self.positions.len()
     }
 
-    pub fn update(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
+    pub fn update_from_zones(&mut self) {
         match &mut self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction: _,
@@ -196,6 +196,10 @@ impl Variant {
 
             _ => (),
         }
+    }
+
+    pub fn update(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
+        self.update_from_zones();
 
         self.positions = Vec::new();
 
