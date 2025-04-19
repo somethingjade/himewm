@@ -27,7 +27,6 @@ pub enum SplitDirection {
 pub enum EndTilingBehaviour {
     Directional {
         direction: Direction,
-        start_from: usize,
         from_zones: Option<Vec<Zone>>,
         zone_idx: usize,
     },
@@ -42,7 +41,6 @@ impl EndTilingBehaviour {
     pub fn default_directional() -> Self {
         EndTilingBehaviour::Directional {
             direction: Direction::Vertical,
-            start_from: 1,
             from_zones: None,
             zone_idx: 0,
         }
@@ -188,10 +186,9 @@ impl Variant {
         match &mut self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction: _,
-                start_from,
                 from_zones,
                 zone_idx: _,
-            } if *start_from > 1 && matches!(from_zones, None) => {
+            } if self.zones[self.zones.len() - 1].len() < self.zones.len() => {
                 *from_zones = self.zones.pop();
 
                 self.manual_zones_until -= 1;
@@ -250,7 +247,6 @@ impl Variant {
         match self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction: _,
-                start_from: _,
                 from_zones: _,
                 zone_idx,
             } => return zone_idx,
@@ -266,7 +262,6 @@ impl Variant {
         match &mut self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction: _,
-                start_from: _,
                 from_zones: _,
                 zone_idx,
             } => {
@@ -286,7 +281,6 @@ impl Variant {
         match &self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction,
-                start_from: _,
                 from_zones: _,
                 zone_idx: _,
             } => return Some(direction.to_owned()),
@@ -302,29 +296,10 @@ impl Variant {
         match &mut self.end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction,
-                start_from: _,
                 from_zones: _,
                 zone_idx: _,
             } => {
                 *direction = new_direction;
-            }
-
-            EndTilingBehaviour::Repeating {
-                splits: _,
-                zone_idx: _,
-            } => return,
-        }
-    }
-
-    pub fn set_end_tiling_start_from(&mut self, val: usize) {
-        match &mut self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction: _,
-                start_from,
-                from_zones: _,
-                zone_idx: _,
-            } => {
-                *start_from = val;
             }
 
             EndTilingBehaviour::Repeating {
@@ -561,18 +536,16 @@ impl Variant {
         match end_tiling_behaviour {
             EndTilingBehaviour::Directional {
                 direction,
-                start_from,
                 from_zones,
                 zone_idx,
             } => {
-                match start_from {
-                    1 => {
+                match from_zones {
+                    Some(zones) => {
+                        self.zones.push(zones.clone());
+                    }
+                    None => {
                         self.zones
                             .push(self.zones[self.manual_zones_until - 1].clone());
-                    }
-
-                    _ => {
-                        self.zones.push(from_zones.unwrap().clone());
                     }
                 }
 
