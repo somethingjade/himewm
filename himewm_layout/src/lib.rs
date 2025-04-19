@@ -198,6 +198,18 @@ impl Variant {
         }
     }
 
+    pub fn using_from_zones(&self) -> bool {
+        match &self.end_tiling_behaviour {
+            EndTilingBehaviour::Directional { direction: _, from_zones, zone_idx: _ } => {
+                match from_zones {
+                    Some(_) => return true,
+                    None => return false,
+                }
+            },
+            EndTilingBehaviour::Repeating { splits: _, zone_idx: _ } => return false,
+        }
+    }
+
     pub fn update(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
         self.update_from_zones();
 
@@ -543,15 +555,17 @@ impl Variant {
                 from_zones,
                 zone_idx,
             } => {
-                match from_zones {
+                let used_from_zones = match &from_zones {
                     Some(zones) => {
                         self.zones.push(zones.clone());
+                        true
                     }
                     None => {
                         self.zones
                             .push(self.zones[self.manual_zones_until - 1].clone());
+                        false
                     }
-                }
+                };
 
                 match direction {
                     Direction::Horizontal => {
@@ -591,8 +605,14 @@ impl Variant {
                     }
                 }
 
-                for i in (self.manual_zones_until..(self.zones.len() - 1)).rev() {
-                    self.swap_zones(self.zones.len() - 1, zone_idx, i);
+                if used_from_zones {
+                    for i in (from_zones.unwrap().len()..(self.zones.len() - 1)).rev() {
+                        self.swap_zones(self.zones.len() - 1, zone_idx, i);
+                    }
+                } else {
+                    for i in (self.manual_zones_until..(self.zones.len() - 1)).rev() {
+                        self.swap_zones(self.zones.len() - 1, zone_idx, i);
+                    }
                 }
             }
 
