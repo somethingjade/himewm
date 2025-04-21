@@ -255,6 +255,10 @@ impl Variant {
         }
     }
 
+    pub fn get_end_tiling_behaviour(&self) -> &EndTilingBehaviour {
+        &self.end_tiling_behaviour
+    }
+
     pub fn set_end_tiling_behaviour(&mut self, behaviour: EndTilingBehaviour) {
         self.end_tiling_behaviour = behaviour;
     }
