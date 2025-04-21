@@ -188,7 +188,9 @@ impl Variant {
                 direction: _,
                 from_zones,
                 zone_idx: _,
-            } if matches!(from_zones, None) && self.zones[self.zones.len() - 1].len() < self.zones.len() => {
+            } if matches!(from_zones, None)
+                && self.zones[self.zones.len() - 1].len() < self.zones.len() =>
+            {
                 *from_zones = self.zones.pop();
 
                 self.manual_zones_until -= 1;
@@ -200,13 +202,18 @@ impl Variant {
 
     pub fn using_from_zones(&self) -> bool {
         match &self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional { direction: _, from_zones, zone_idx: _ } => {
-                match from_zones {
-                    Some(_) => return true,
-                    None => return false,
-                }
+            EndTilingBehaviour::Directional {
+                direction: _,
+                from_zones,
+                zone_idx: _,
+            } => match from_zones {
+                Some(_) => return true,
+                None => return false,
             },
-            EndTilingBehaviour::Repeating { splits: _, zone_idx: _ } => return false,
+            EndTilingBehaviour::Repeating {
+                splits: _,
+                zone_idx: _,
+            } => return false,
         }
     }
 
