@@ -76,6 +76,10 @@ impl RepeatingSplit {
             swap,
         }
     }
+
+    pub fn get_direction(&self) -> &Direction {
+        &self.direction
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
