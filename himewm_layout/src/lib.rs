@@ -80,6 +80,18 @@ impl RepeatingSplit {
     pub fn get_direction(&self) -> &Direction {
         &self.direction
     }
+
+    pub fn get_split_ratio(&self) -> f64 {
+        self.split_ratio
+    }
+
+    pub fn get_offset(&self) -> usize {
+        self.split_idx_offset
+    }
+
+    pub fn get_swap(&self) -> bool {
+        self.swap
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
