@@ -386,13 +386,17 @@ impl Variant {
         return None;
     }
 
-    pub fn remove_repeating_split(&mut self, i: usize, j: usize) {
+    pub fn remove_repeating_split(&mut self, idx: usize) {
         if let EndTilingBehaviour::Repeating {
             splits,
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-            splits[i].remove(j);
+             for i in (idx + 1)..splits.len() {
+                 splits[i].remove(idx);
+             }
+
+             splits.remove(idx);
         }
     }
 
