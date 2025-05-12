@@ -358,32 +358,32 @@ impl Variant {
         split_ratio: f64,
         split_idx_offset: usize,
         swap: bool,
-    ) {
+    ) -> Option<&RepeatingSplit> {
         if let EndTilingBehaviour::Repeating {
             splits,
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-            if splits.len() == 0 {
-                splits.push(vec![RepeatingSplit::new(
-                    direction,
-                    split_ratio,
-                    split_idx_offset,
-                    swap,
-                )]);
+            let split = RepeatingSplit::new(direction, split_ratio, split_idx_offset, swap);
+
+            let ret = if splits.len() == 0 {
+                splits.push(vec![split]);
+
+                &splits[0][0]
             } else {
                 splits.push(splits[splits.len() - 1].clone());
 
                 let idx = splits.len() - 1;
 
-                splits[idx].push(RepeatingSplit::new(
-                    direction,
-                    split_ratio,
-                    split_idx_offset,
-                    swap,
-                ));
-            }
+                splits[idx].push(split);
+
+                &splits[idx][splits[idx].len() - 1]
+            };
+
+            return Some(ret);
         }
+
+        return None;
     }
 
     pub fn remove_repeating_split(&mut self, i: usize, j: usize) {
