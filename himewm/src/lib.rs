@@ -470,6 +470,21 @@ impl WindowManager {
             return;
         }
 
+        let window_info = self.window_info.get(&hwnd.0).unwrap();
+
+        let WindowInfo {
+            desktop_id,
+            monitor_handle,
+            ..
+        } = window_info.to_owned();
+
+        if self
+            .ignored_combinations
+            .contains(&(desktop_id, monitor_handle.0))
+        {
+            return;
+        }
+
         self.set_border_to_focused(hwnd);
 
         match self.foreground_window {
@@ -485,14 +500,6 @@ impl WindowManager {
         self.foreground_window = Some(hwnd);
 
         if is_restored(hwnd) {
-            let window_info = self.window_info.get(&hwnd.0).unwrap();
-
-            let WindowInfo {
-                desktop_id,
-                monitor_handle,
-                ..
-            } = window_info.to_owned();
-
             for (h, info) in self.window_info.iter_mut() {
                 if (info.desktop_id == desktop_id
                     && info.monitor_handle == monitor_handle
