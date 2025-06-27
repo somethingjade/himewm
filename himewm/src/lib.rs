@@ -72,7 +72,7 @@ enum CycleDirection {
     Next,
 }
 
-const CREATE_RETRIES: i32 = 1000;
+const CREATE_RETRIES: i32 = 10000;
 
 pub struct Settings {
     pub default_layout_idx: usize,
@@ -254,17 +254,22 @@ impl WindowManager {
             Some(window_info) if window_info.restored => return,
 
             Some(window_info) if is_restored(hwnd) => {
-                window_info.restored = true;
-
-                if self.ignored_windows.contains(&hwnd.0) {
-                    return;
-                }
-
                 let idx = window_info.idx;
 
                 desktop_id = window_info.desktop_id;
 
                 monitor_handle = window_info.monitor_handle;
+
+                match self.foreground_window {
+                    Some(foreground_hwnd) if foreground_hwnd == hwnd => self.foreground_window_changed(hwnd),
+                    _ => (),
+                }
+
+                self.window_info.get_mut(&hwnd.0).unwrap().restored = true;
+
+                if self.ignored_windows.contains(&hwnd.0) {
+                    return;
+                }
 
                 self.insert_hwnd(desktop_id, monitor_handle, idx, hwnd);
 
@@ -475,6 +480,7 @@ impl WindowManager {
         let WindowInfo {
             desktop_id,
             monitor_handle,
+            restored,
             ..
         } = window_info.to_owned();
 
@@ -488,7 +494,11 @@ impl WindowManager {
         self.set_border_to_focused(hwnd);
 
         match self.foreground_window {
-            Some(previous_foreground_window) if previous_foreground_window == hwnd => return,
+            Some(previous_foreground_window) if previous_foreground_window == hwnd => {
+                if restored {
+                    return;
+                }
+            },
 
             Some(previous_foreground_window) => {
                 self.set_border_to_unfocused(previous_foreground_window);
@@ -501,7 +511,8 @@ impl WindowManager {
 
         if is_restored(hwnd) {
             for (h, info) in self.window_info.iter_mut() {
-                if (info.desktop_id == desktop_id
+                if (h != &hwnd.0 
+                    && info.desktop_id == desktop_id
                     && info.monitor_handle == monitor_handle
                     && !info.restored)
                     || self.ignored_windows.contains(h)
