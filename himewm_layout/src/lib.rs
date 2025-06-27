@@ -397,9 +397,11 @@ impl Variant {
                      splits_vec.remove(idx);
                  }
 
-                 for split in splits_vec {
-                     if split.split_idx_offset > splits_vec.len() {
-                         split.split_idx_offset = splits_vec.len();
+                 let len = splits_vec.len();
+
+                 for split in splits_vec.iter_mut() {
+                     if split.split_idx_offset > len {
+                         split.split_idx_offset = len;
                      }
                  }
              }
