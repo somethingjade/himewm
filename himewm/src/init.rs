@@ -19,7 +19,7 @@ impl Directories {
 
         let layouts_dir = config_dir.join("layouts");
 
-        return Directories {
+        return Self {
             config_dir,
             layouts_dir,
         };
@@ -40,21 +40,32 @@ impl Colour {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct UserSettings {
+pub struct LayoutSettings {
     default_layout: std::path::PathBuf,
     window_padding: i32,
     edge_padding: i32,
+}
+
+impl Default for LayoutSettings {
+    fn default() -> Self {
+        Self {
+            default_layout: std::path::PathBuf::new(),
+            window_padding: 0,
+            edge_padding: 0,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct BorderSettings {
     disable_rounding: bool,
     disable_unfocused_border: bool,
     focused_border_colour: Colour,
 }
 
-impl Default for UserSettings {
+impl Default for BorderSettings {
     fn default() -> Self {
-        UserSettings {
-            default_layout: std::path::PathBuf::new(),
-            window_padding: 0,
-            edge_padding: 0,
+        Self {
             disable_rounding: false,
             disable_unfocused_border: false,
             focused_border_colour: Colour {
@@ -66,21 +77,52 @@ impl Default for UserSettings {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct AdvancedSettings {
+    new_window_retries: i32,
+}
+
+impl Default for AdvancedSettings {
+    fn default() -> Self {
+        Self {
+            new_window_retries: 10000
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct UserSettings {
+    layout_settings: LayoutSettings,
+    border_settings: BorderSettings,
+    advanced_settings: AdvancedSettings
+}
+
+impl Default for UserSettings {
+    fn default() -> Self {
+        Self {
+            layout_settings: LayoutSettings::default(),
+            border_settings: BorderSettings::default(),
+            advanced_settings: AdvancedSettings::default(),
+        }
+    }
+}
+
 impl UserSettings {
     pub fn to_settings(
         &self,
         layouts: &Vec<(std::path::PathBuf, himewm_layout::Layout)>,
     ) -> himewm::Settings {
-        if self.default_layout != std::path::Path::new("") {
+        if self.layout_settings.default_layout != std::path::Path::new("") {
             for (idx, (p, _)) in layouts.iter().enumerate() {
-                if p == &self.default_layout {
+                if p == &self.layout_settings.default_layout {
                     return himewm::Settings {
                         default_layout_idx: idx,
-                        window_padding: self.window_padding,
-                        edge_padding: self.edge_padding,
-                        disable_rounding: self.disable_rounding,
-                        disable_unfocused_border: self.disable_unfocused_border,
-                        focused_border_colour: self.focused_border_colour.as_colorref(),
+                        window_padding: self.layout_settings.window_padding,
+                        edge_padding: self.layout_settings.edge_padding,
+                        disable_rounding: self.border_settings.disable_rounding,
+                        disable_unfocused_border: self.border_settings.disable_unfocused_border,
+                        focused_border_colour: self.border_settings.focused_border_colour.as_colorref(),
+                        new_window_retries: self.advanced_settings.new_window_retries,
                     };
                 }
             }
@@ -88,11 +130,12 @@ impl UserSettings {
 
         return himewm::Settings {
             default_layout_idx: 0,
-            window_padding: self.window_padding,
-            edge_padding: self.edge_padding,
-            disable_rounding: self.disable_rounding,
-            disable_unfocused_border: self.disable_unfocused_border,
-            focused_border_colour: self.focused_border_colour.as_colorref(),
+            window_padding: self.layout_settings.window_padding,
+            edge_padding: self.layout_settings.edge_padding,
+            disable_rounding: self.border_settings.disable_rounding,
+            disable_unfocused_border: self.border_settings.disable_unfocused_border,
+            focused_border_colour: self.border_settings.focused_border_colour.as_colorref(),
+            new_window_retries: self.advanced_settings.new_window_retries,
         };
     }
 }
