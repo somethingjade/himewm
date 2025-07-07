@@ -72,8 +72,6 @@ enum CycleDirection {
     Next,
 }
 
-const CREATE_RETRIES: i32 = 10000;
-
 pub struct Settings {
     pub default_layout_idx: usize,
     pub window_padding: i32,
@@ -81,6 +79,7 @@ pub struct Settings {
     pub disable_rounding: bool,
     pub disable_unfocused_border: bool,
     pub focused_border_colour: COLORREF,
+    pub new_window_retries: i32,
 }
 
 impl Default for Settings {
@@ -92,6 +91,7 @@ impl Default for Settings {
             disable_rounding: false,
             disable_unfocused_border: false,
             focused_border_colour: COLORREF(0x00FFFFFF),
+            new_window_retries: 10000,
         }
     }
 }
@@ -261,7 +261,7 @@ impl WindowManager {
                 monitor_handle = window_info.monitor_handle;
 
                 match self.foreground_window {
-                    Some(foreground_hwnd) if foreground_hwnd == hwnd => self.foreground_window_changed(hwnd),
+                    Some(foreground_hwnd) if foreground_hwnd == hwnd => self.foreground_window_changed(hwnd, true),
                     _ => (),
                 }
 
@@ -296,7 +296,7 @@ impl WindowManager {
                         }
                     }
 
-                    if count == CREATE_RETRIES {
+                    if count == self.settings.new_window_retries {
                         return;
                     }
                 }
@@ -464,7 +464,7 @@ impl WindowManager {
         self.update_workspace(new_desktop_id, monitor_handle);
     }
 
-    unsafe fn foreground_window_changed(&mut self, hwnd: HWND) {
+    unsafe fn foreground_window_changed(&mut self, hwnd: HWND, updating: bool) {
         if !self.window_info.contains_key(&hwnd.0) {
             if let Some(previous_foreground_window) = self.foreground_window {
                 self.set_border_to_unfocused(previous_foreground_window);
@@ -480,7 +480,6 @@ impl WindowManager {
         let WindowInfo {
             desktop_id,
             monitor_handle,
-            restored,
             ..
         } = window_info.to_owned();
 
@@ -495,7 +494,7 @@ impl WindowManager {
 
         match self.foreground_window {
             Some(previous_foreground_window) if previous_foreground_window == hwnd => {
-                if restored {
+                if !updating {
                     return;
                 }
             },
@@ -509,13 +508,13 @@ impl WindowManager {
 
         self.foreground_window = Some(hwnd);
 
-        if is_restored(hwnd) {
+        if !self.ignored_windows.contains(&hwnd.0) && is_restored(hwnd) {
             for (h, info) in self.window_info.iter_mut() {
-                if (h != &hwnd.0 
-                    && info.desktop_id == desktop_id
+                if h != &hwnd.0 &&
+                    ((info.desktop_id == desktop_id
                     && info.monitor_handle == monitor_handle
                     && !info.restored)
-                    || self.ignored_windows.contains(h)
+                    || self.ignored_windows.contains(h))
                 {
                     let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
                 }
@@ -1305,6 +1304,8 @@ impl WindowManager {
             if restored {
                 let original_dpi = GetDpiForWindow(foreground_window);
 
+                self.foreground_window_changed(foreground_window, true);
+
                 self.insert_hwnd(desktop_id, monitor_handle, idx, foreground_window);
 
                 self.update_workspace(desktop_id, monitor_handle);
@@ -1966,7 +1967,7 @@ pub unsafe fn handle_message(msg: MSG, wm: &mut WindowManager) {
         }
 
         messages::FOREGROUND_WINDOW_CHANGED => {
-            wm.foreground_window_changed(HWND(msg.wParam.0 as *mut core::ffi::c_void));
+            wm.foreground_window_changed(HWND(msg.wParam.0 as *mut core::ffi::c_void), false);
         }
 
         messages::WINDOW_MOVE_FINISHED => {
