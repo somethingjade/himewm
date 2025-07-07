@@ -78,6 +78,21 @@ impl Default for BorderSettings {
 }
 
 #[derive(Deserialize, Serialize)]
+pub struct MiscSettings {
+    floating_window_default_w_ratio: f64,
+    floating_window_default_h_ratio: f64,
+}
+
+impl Default for MiscSettings {
+    fn default() -> Self {
+        Self {
+            floating_window_default_w_ratio: 0.5,
+            floating_window_default_h_ratio: 0.5,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct AdvancedSettings {
     new_window_retries: i32,
 }
@@ -85,7 +100,7 @@ pub struct AdvancedSettings {
 impl Default for AdvancedSettings {
     fn default() -> Self {
         Self {
-            new_window_retries: 10000
+            new_window_retries: 10000,
         }
     }
 }
@@ -94,7 +109,8 @@ impl Default for AdvancedSettings {
 pub struct UserSettings {
     layout_settings: LayoutSettings,
     border_settings: BorderSettings,
-    advanced_settings: AdvancedSettings
+    misc_settings: MiscSettings,
+    advanced_settings: AdvancedSettings,
 }
 
 impl Default for UserSettings {
@@ -102,6 +118,7 @@ impl Default for UserSettings {
         Self {
             layout_settings: LayoutSettings::default(),
             border_settings: BorderSettings::default(),
+            misc_settings: MiscSettings::default(),
             advanced_settings: AdvancedSettings::default(),
         }
     }
@@ -112,29 +129,24 @@ impl UserSettings {
         &self,
         layouts: &Vec<(std::path::PathBuf, himewm_layout::Layout)>,
     ) -> himewm::Settings {
+        let mut idx = 0;
         if self.layout_settings.default_layout != std::path::Path::new("") {
-            for (idx, (p, _)) in layouts.iter().enumerate() {
+            for (i, (p, _)) in layouts.iter().enumerate() {
                 if p == &self.layout_settings.default_layout {
-                    return himewm::Settings {
-                        default_layout_idx: idx,
-                        window_padding: self.layout_settings.window_padding,
-                        edge_padding: self.layout_settings.edge_padding,
-                        disable_rounding: self.border_settings.disable_rounding,
-                        disable_unfocused_border: self.border_settings.disable_unfocused_border,
-                        focused_border_colour: self.border_settings.focused_border_colour.as_colorref(),
-                        new_window_retries: self.advanced_settings.new_window_retries,
-                    };
+                    idx = i;
+                    break;
                 }
             }
         }
-
         return himewm::Settings {
-            default_layout_idx: 0,
+            default_layout_idx: idx,
             window_padding: self.layout_settings.window_padding,
             edge_padding: self.layout_settings.edge_padding,
             disable_rounding: self.border_settings.disable_rounding,
             disable_unfocused_border: self.border_settings.disable_unfocused_border,
             focused_border_colour: self.border_settings.focused_border_colour.as_colorref(),
+            floating_window_default_w_ratio: self.misc_settings.floating_window_default_w_ratio,
+            floating_window_default_h_ratio: self.misc_settings.floating_window_default_h_ratio,
             new_window_retries: self.advanced_settings.new_window_retries,
         };
     }

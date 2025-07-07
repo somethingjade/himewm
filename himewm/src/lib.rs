@@ -79,18 +79,22 @@ pub struct Settings {
     pub disable_rounding: bool,
     pub disable_unfocused_border: bool,
     pub focused_border_colour: COLORREF,
+    pub floating_window_default_w_ratio: f64,
+    pub floating_window_default_h_ratio: f64,
     pub new_window_retries: i32,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings {
+        Self {
             default_layout_idx: 0,
             window_padding: 0,
             edge_padding: 0,
             disable_rounding: false,
             disable_unfocused_border: false,
             focused_border_colour: COLORREF(0x00FFFFFF),
+            floating_window_default_w_ratio: 0.5,
+            floating_window_default_h_ratio: 0.5,
             new_window_retries: 10000,
         }
     }
@@ -115,7 +119,7 @@ struct Workspace {
 
 impl Workspace {
     unsafe fn new(hwnd: HWND, layout_idx: usize, variant_idx: usize) -> Self {
-        Workspace {
+        Self {
             layout_idx,
             variant_idx,
             managed_window_handles: vec![hwnd],
@@ -133,7 +137,7 @@ struct WindowInfo {
 
 impl WindowInfo {
     fn new(desktop_id: GUID, monitor_handle: HMONITOR, restored: bool, idx: usize) -> Self {
-        WindowInfo {
+        Self {
             desktop_id,
             monitor_handle,
             restored,
@@ -160,7 +164,7 @@ impl WindowManager {
     pub unsafe fn new(settings: Settings) -> Self {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
 
-        WindowManager {
+        Self {
             event_hook: SetWinEventHook(
                 EVENT_MIN,
                 EVENT_MAX,
@@ -261,7 +265,9 @@ impl WindowManager {
                 monitor_handle = window_info.monitor_handle;
 
                 match self.foreground_window {
-                    Some(foreground_hwnd) if foreground_hwnd == hwnd => self.foreground_window_changed(hwnd, true),
+                    Some(foreground_hwnd) if foreground_hwnd == hwnd => {
+                        self.foreground_window_changed(hwnd, true)
+                    }
                     _ => (),
                 }
 
@@ -497,7 +503,7 @@ impl WindowManager {
                 if !updating {
                     return;
                 }
-            },
+            }
 
             Some(previous_foreground_window) => {
                 self.set_border_to_unfocused(previous_foreground_window);
@@ -510,11 +516,11 @@ impl WindowManager {
 
         if !self.ignored_windows.contains(&hwnd.0) && is_restored(hwnd) {
             for (h, info) in self.window_info.iter_mut() {
-                if h != &hwnd.0 &&
-                    ((info.desktop_id == desktop_id
-                    && info.monitor_handle == monitor_handle
-                    && !info.restored)
-                    || self.ignored_windows.contains(h))
+                if h != &hwnd.0
+                    && ((info.desktop_id == desktop_id
+                        && info.monitor_handle == monitor_handle
+                        && !info.restored)
+                        || self.ignored_windows.contains(h))
                 {
                     let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
                 }
@@ -1338,9 +1344,31 @@ impl WindowManager {
         } else {
             self.ignored_windows.insert(foreground_window.0);
 
-            self.remove_hwnd(desktop_id, monitor_handle, idx);
+            if let None = self.remove_hwnd(desktop_id, monitor_handle, idx) {
+                return;
+            }
 
             self.update_workspace(desktop_id, monitor_handle);
+
+            let workspace = self
+                .workspaces
+                .get(&(desktop_id, monitor_handle.0))
+                .unwrap();
+
+            let monitor_rect = self.layouts.get_mut(&monitor_handle.0).unwrap()
+                [workspace.layout_idx]
+                .get_monitor_rect();
+
+            let w =
+                ((monitor_rect.w() as f64) * self.settings.floating_window_default_w_ratio) as i32;
+            let h =
+                ((monitor_rect.h() as f64) * self.settings.floating_window_default_h_ratio) as i32;
+
+            let x = (((monitor_rect.w() - w) as f64) * 0.5) as i32 + monitor_rect.left;
+
+            let y = (((monitor_rect.h() - h) as f64) * 0.5) as i32 + monitor_rect.top;
+
+            let _ = SetWindowPos(foreground_window, None, x, y, w, h, SWP_NOZORDER);
         }
     }
 
