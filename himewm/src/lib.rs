@@ -1359,14 +1359,14 @@ impl WindowManager {
                 [workspace.layout_idx]
                 .get_monitor_rect();
 
-            let w =
-                ((monitor_rect.w() as f64) * self.settings.floating_window_default_w_ratio) as i32;
-            let h =
-                ((monitor_rect.h() as f64) * self.settings.floating_window_default_h_ratio) as i32;
+            let w = ((monitor_rect.w() as f64) * self.settings.floating_window_default_w_ratio)
+                .round() as i32;
+            let h = ((monitor_rect.h() as f64) * self.settings.floating_window_default_h_ratio)
+                .round() as i32;
 
-            let x = (((monitor_rect.w() - w) as f64) * 0.5) as i32 + monitor_rect.left;
+            let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.left;
 
-            let y = (((monitor_rect.h() - h) as f64) * 0.5) as i32 + monitor_rect.top;
+            let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.top;
 
             let _ = SetWindowPos(foreground_window, None, x, y, w, h, SWP_NOZORDER);
         }
@@ -1652,7 +1652,11 @@ impl WindowManager {
         _ideventthread: u32,
         _dwmseventtime: u32,
     ) {
-        if !has_sizebox(hwnd) {
+        if event == EVENT_OBJECT_LOCATIONCHANGE {
+            if !is_overlappedwindow(hwnd) {
+                return;
+            }
+        } else if !has_sizebox(hwnd) {
             return;
         }
 
@@ -1756,7 +1760,7 @@ impl WindowManager {
             return true.into();
         }
 
-        if !IsWindowVisible(hwnd).as_bool() || !has_sizebox(hwnd) {
+        if !IsWindowVisible(hwnd).as_bool() || !is_overlappedwindow(hwnd) {
             return true.into();
         }
 
@@ -1789,7 +1793,8 @@ impl WindowManager {
 }
 
 unsafe fn is_restored(hwnd: HWND) -> bool {
-    return !IsIconic(hwnd).as_bool()
+    return has_sizebox(hwnd)
+        && !IsIconic(hwnd).as_bool()
         && !IsZoomed(hwnd).as_bool()
         && !IsWindowArranged(hwnd).as_bool()
         && IsWindowVisible(hwnd).as_bool();
@@ -1797,6 +1802,10 @@ unsafe fn is_restored(hwnd: HWND) -> bool {
 
 unsafe fn has_sizebox(hwnd: HWND) -> bool {
     GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_SIZEBOX.0 as isize != 0
+}
+
+unsafe fn is_overlappedwindow(hwnd: HWND) -> bool {
+    GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW.0 as isize != 0
 }
 
 pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option<Layout> {
