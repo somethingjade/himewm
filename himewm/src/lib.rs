@@ -517,10 +517,9 @@ impl WindowManager {
         if !self.ignored_windows.contains(&hwnd.0) && is_restored(hwnd) {
             for (h, info) in self.window_info.iter_mut() {
                 if h != &hwnd.0
-                    && ((info.desktop_id == desktop_id
-                        && info.monitor_handle == monitor_handle
-                        && !info.restored)
-                        || self.ignored_windows.contains(h))
+                    && info.desktop_id == desktop_id
+                    && info.monitor_handle == monitor_handle
+                    && (!info.restored || self.ignored_windows.contains(h))
                 {
                     let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
                 }
