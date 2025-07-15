@@ -1,9 +1,6 @@
 use directories::BaseDirs;
-
 use himewm_layout::*;
-
 use serde::{Deserialize, Serialize};
-
 use windows::Win32::Foundation::COLORREF;
 
 struct Directories {
@@ -14,11 +11,8 @@ struct Directories {
 impl Directories {
     fn new() -> Self {
         let base_dirs = BaseDirs::new().unwrap();
-
         let config_dir = base_dirs.config_dir().join("himewm");
-
         let layouts_dir = config_dir.join("layouts");
-
         return Self {
             config_dir,
             layouts_dir,
@@ -154,36 +148,27 @@ impl UserSettings {
 
 pub fn create_dirs() -> std::io::Result<()> {
     let dirs = Directories::new();
-
     let _config_dir = std::fs::create_dir(dirs.config_dir)?;
-
     let _layouts_dir = std::fs::create_dir(dirs.layouts_dir)?;
-
     return Ok(());
 }
 
 pub fn initialize_settings() -> UserSettings {
     let dirs = Directories::new();
-
     match std::fs::read(dirs.config_dir.join("settings.json")) {
         Ok(byte_vector) => match serde_json::from_slice::<UserSettings>(byte_vector.as_slice()) {
             Ok(settings) => {
                 return settings;
             }
-
             Err(_) => {
                 return UserSettings::default();
             }
         },
-
         Err(_) => {
             let settings_file =
                 std::fs::File::create_new(dirs.config_dir.join("settings.json")).unwrap();
-
             let default_user_settings = UserSettings::default();
-
             let _ = serde_json::to_writer_pretty(settings_file, &default_user_settings);
-
             return default_user_settings;
         }
     }
@@ -191,31 +176,23 @@ pub fn initialize_settings() -> UserSettings {
 
 pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
     let mut ret = Vec::new();
-
     let dirs = Directories::new();
-
     for entry_result in std::fs::read_dir(dirs.layouts_dir).unwrap() {
         match entry_result {
             Ok(entry) => match std::fs::read(entry.path()) {
                 Ok(byte_vector) => {
                     let layout: Layout = match serde_json::from_slice(byte_vector.as_slice()) {
                         Ok(val) => val,
-
                         Err(_) => continue,
                     };
-
                     let layout_name = std::path::Path::new(&entry.file_name()).with_extension("");
-
                     ret.push((layout_name, layout));
                 }
-
                 Err(_) => continue,
             },
-
             Err(_) => continue,
         }
     }
-
     if ret.is_empty() {
         return None;
     } else {
