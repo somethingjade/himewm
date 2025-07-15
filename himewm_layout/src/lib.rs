@@ -30,7 +30,7 @@ pub enum EndTilingBehaviour {
         zone_idx: usize,
     },
     Repeating {
-        splits: Vec<Vec<RepeatingSplit>>,
+        splits: Vec<RepeatingSplit>,
         zone_idx: usize,
     },
 }
@@ -340,15 +340,8 @@ impl Variant {
         } = &mut self.end_tiling_behaviour
         {
             let split = RepeatingSplit::new(direction, split_ratio, split_idx_offset, swap);
-            let ret = if splits.len() == 0 {
-                splits.push(vec![split]);
-                &splits[0][0]
-            } else {
-                splits.push(splits[splits.len() - 1].clone());
-                let idx = splits.len() - 1;
-                splits[idx].push(split);
-                &splits[idx][splits[idx].len() - 1]
-            };
+            splits.push(split);
+            let ret = &splits[splits.len() - 1];
             return Some(ret);
         }
         return None;
@@ -360,58 +353,53 @@ impl Variant {
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-            let max_offset = splits.len() - 1;
-            for (i, splits_vec) in splits.iter_mut().enumerate() {
-                if i > idx {
-                    splits_vec.remove(idx);
-                }
-                for split in splits_vec.iter_mut() {
-                    if split.split_idx_offset > max_offset {
-                        split.split_idx_offset = max_offset;
-                    }
+            splits.remove(idx);
+            let max_offset = splits.len();
+            for split in splits {
+                if split.split_idx_offset > max_offset {
+                    split.split_idx_offset = max_offset;
                 }
             }
-            splits.remove(idx);
         }
     }
 
-    pub fn set_repeating_split_direction(&mut self, i: usize, j: usize, direction: Direction) {
+    pub fn set_repeating_split_direction(&mut self, idx: usize, direction: Direction) {
         if let EndTilingBehaviour::Repeating {
             splits,
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-            splits[i][j].direction = direction;
+            splits[idx].direction = direction;
         }
     }
 
-    pub fn set_repeating_split_ratio(&mut self, i: usize, j: usize, val: f64) {
+    pub fn set_repeating_split_ratio(&mut self, idx: usize, val: f64) {
         if let EndTilingBehaviour::Repeating {
             splits,
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-            splits[i][j].split_ratio = val;
+            splits[idx].split_ratio = val;
         }
     }
 
-    pub fn set_repeating_split_idx_offset(&mut self, i: usize, j: usize, val: usize) {
+    pub fn set_repeating_split_idx_offset(&mut self, idx: usize, val: usize) {
         if let EndTilingBehaviour::Repeating {
             splits,
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-            splits[i][j].split_idx_offset = val;
+            splits[idx].split_idx_offset = val;
         }
     }
 
-    pub fn set_repeating_split_swap(&mut self, i: usize, j: usize, val: bool) {
+    pub fn set_repeating_split_swap(&mut self, idx: usize, val: bool) {
         if let EndTilingBehaviour::Repeating {
             splits,
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-            splits[i][j].swap = val;
+            splits[idx].swap = val;
         }
     }
 
@@ -586,61 +574,49 @@ impl Variant {
                 }
             }
             EndTilingBehaviour::Repeating { splits, zone_idx } => {
-                let repeating_idx = (self.zones.len() - self.manual_zones_until) % splits.len();
-                self.zones.push(
-                    self.zones[self.zones.len()
-                        - 1
-                        - ((self.zones.len() - self.manual_zones_until) % splits.len())]
-                    .clone(),
-                );
-                for (i, split) in splits[repeating_idx].iter().enumerate() {
-                    let split_idx = match i {
-                        0 if (self.zones.len() - 1 - self.manual_zones_until) / splits.len()
-                            == 0 =>
-                        {
-                            zone_idx
-                        }
-                        0 => {
-                            self.zones[self.zones.len() - 1].len() - 1 - splits.len()
-                                + split.split_idx_offset
-                        }
-                        _ => {
-                            self.zones[self.zones.len() - 1].len() - 1 - i + split.split_idx_offset
-                        }
-                    };
-                    let at;
-                    match split.direction {
-                        Direction::Horizontal => {
-                            at = self.zones[self.zones.len() - 1][split_idx].left
-                                + (split.split_ratio
-                                    * (self.zones[self.zones.len() - 1][split_idx].w() as f64))
-                                    .round() as i32;
-                            self.split(
-                                self.zones.len() - 1,
-                                split_idx,
-                                SplitDirection::Horizontal(at),
-                            );
-                        }
-                        Direction::Vertical => {
-                            at = self.zones[self.zones.len() - 1][split_idx].top
-                                + (split.split_ratio
-                                    * (self.zones[self.zones.len() - 1][split_idx].h() as f64))
-                                    .round() as i32;
-                            self.split(
-                                self.zones.len() - 1,
-                                split_idx,
-                                SplitDirection::Vertical(at),
-                            );
-                        }
-                    }
-                    self.set_end_zone_idx(end_zone_idx);
-                    if split.swap {
-                        self.swap_zones(
+                let repeating_split_idx =
+                    (self.zones.len() - self.manual_zones_until) % splits.len();
+                let split = &splits[repeating_split_idx];
+                self.zones.push(self.zones[self.zones.len() - 1].clone());
+                let split_idx = if self.zones.len() == self.manual_zones_until {
+                    zone_idx
+                } else if repeating_split_idx == 0 {
+                    self.zones.len() - 1 - splits.len() + split.split_idx_offset
+                } else {
+                    self.zones.len() - 1 - repeating_split_idx + split.split_idx_offset
+                };
+                let at;
+                match split.direction {
+                    Direction::Horizontal => {
+                        at = self.zones[self.zones.len() - 1][split_idx].left
+                            + (split.split_ratio
+                                * (self.zones[self.zones.len() - 1][split_idx].w() as f64))
+                                .round() as i32;
+                        self.split(
                             self.zones.len() - 1,
                             split_idx,
-                            self.zones[self.zones.len() - 1].len() - 1,
+                            SplitDirection::Horizontal(at),
                         );
                     }
+                    Direction::Vertical => {
+                        at = self.zones[self.zones.len() - 1][split_idx].top
+                            + (split.split_ratio
+                                * (self.zones[self.zones.len() - 1][split_idx].h() as f64))
+                                .round() as i32;
+                        self.split(
+                            self.zones.len() - 1,
+                            split_idx,
+                            SplitDirection::Vertical(at),
+                        );
+                    }
+                }
+                self.set_end_zone_idx(end_zone_idx);
+                if split.swap {
+                    self.swap_zones(
+                        self.zones.len() - 1,
+                        split_idx,
+                        self.zones[self.zones.len() - 1].len() - 1,
+                    );
                 }
             }
         }
