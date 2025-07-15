@@ -578,7 +578,7 @@ impl Variant {
                     (self.zones.len() - self.manual_zones_until) % splits.len();
                 let split = &splits[repeating_split_idx];
                 self.zones.push(self.zones[self.zones.len() - 1].clone());
-                let split_idx = if self.zones.len() == self.manual_zones_until {
+                let split_idx = if self.zones.len() - 1 == self.manual_zones_until {
                     zone_idx
                 } else if repeating_split_idx == 0 {
                     self.zones.len() - 1 - splits.len() + split.split_idx_offset
