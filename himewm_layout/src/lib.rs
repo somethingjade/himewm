@@ -360,18 +360,18 @@ impl Variant {
             zone_idx: _,
         } = &mut self.end_tiling_behaviour
         {
-             for (i, splits_vec) in splits.iter_mut().enumerate() {
-                 if i > idx {
-                     splits_vec.remove(idx);
-                 }
-                 let len = splits_vec.len();
-                 for split in splits_vec.iter_mut() {
-                     if split.split_idx_offset > len {
-                         split.split_idx_offset = len;
-                     }
-                 }
-             }
-             splits.remove(idx);
+            for (i, splits_vec) in splits.iter_mut().enumerate() {
+                if i > idx {
+                    splits_vec.remove(idx);
+                }
+                let len = splits_vec.len();
+                for split in splits_vec.iter_mut() {
+                    if split.split_idx_offset > len {
+                        split.split_idx_offset = len;
+                    }
+                }
+            }
+            splits.remove(idx);
         }
     }
 
