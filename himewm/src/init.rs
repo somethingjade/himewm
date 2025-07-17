@@ -49,7 +49,7 @@ impl Default for BorderSettings {
         Self {
             disable_rounding: false,
             disable_unfocused_border: false,
-            focused_border_colour: String::from("ffffff")
+            focused_border_colour: String::from("ffffff"),
         }
     }
 }
@@ -121,7 +121,9 @@ impl UserSettings {
             edge_padding: self.layout_settings.edge_padding,
             disable_rounding: self.border_settings.disable_rounding,
             disable_unfocused_border: self.border_settings.disable_unfocused_border,
-            focused_border_colour: hex_string_to_colorref(self.border_settings.focused_border_colour.as_str()),
+            focused_border_colour: hex_string_to_colorref(
+                self.border_settings.focused_border_colour.as_str(),
+            ),
             floating_window_default_w_ratio: self.misc_settings.floating_window_default_w_ratio,
             floating_window_default_h_ratio: self.misc_settings.floating_window_default_h_ratio,
             new_window_retries: self.advanced_settings.new_window_retries,
@@ -137,18 +139,21 @@ fn hex_to_decimal(c: u8) -> u8 {
         97..103 => {
             return c - 87;
         }
-        _ => return 0
+        _ => return 0,
     }
 }
 
 fn hex_string_to_colorref(s: &str) -> COLORREF {
-        let lowercase = s.to_lowercase();
-        let byte_slice = lowercase.as_bytes();
-        let digits = byte_slice.iter().map(|byte| hex_to_decimal(*byte)).collect::<Vec<u8>>();
-        let r = digits[0] << 4 | digits[1];
-        let g = digits[2] << 4 | digits[3];
-        let b = digits[4] << 4 | digits[5];
-        return COLORREF(r as u32 | (g as u32) << 8 | (b as u32) << 16);
+    let lowercase = s.to_lowercase();
+    let byte_slice = lowercase.as_bytes();
+    let digits = byte_slice
+        .iter()
+        .map(|byte| hex_to_decimal(*byte))
+        .collect::<Vec<u8>>();
+    let r = digits[0] << 4 | digits[1];
+    let g = digits[2] << 4 | digits[3];
+    let b = digits[4] << 4 | digits[5];
+    return COLORREF(r as u32 | (g as u32) << 8 | (b as u32) << 16);
 }
 
 pub fn create_dirs() -> std::io::Result<()> {
