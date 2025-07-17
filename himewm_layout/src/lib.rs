@@ -169,16 +169,6 @@ impl Variant {
         self.manual_zones_until -= 1;
     }
 
-    pub fn swap_zone_vectors(&mut self, i: usize, j: usize) {
-        if i == j {
-            return;
-        }
-        let first_idx = std::cmp::min(i, j);
-        let second_idx = std::cmp::max(i, j);
-        let (first_slice, second_slice) = self.zones.split_at_mut(second_idx);
-        std::mem::swap(&mut first_slice[first_idx], &mut second_slice[0]);
-    }
-
     pub fn manual_zones_until(&self) -> usize {
         self.manual_zones_until
     }
@@ -486,16 +476,6 @@ impl Variant {
         self.zones[i].remove(second_idx);
     }
 
-    pub fn swap_zones(&mut self, i: usize, j: usize, k: usize) {
-        if j == k {
-            return;
-        }
-        let first_idx = std::cmp::min(j, k);
-        let second_idx = std::cmp::max(j, k);
-        let (first_slice, second_slice) = self.zones[i].split_at_mut(second_idx);
-        std::mem::swap(&mut first_slice[first_idx], &mut second_slice[0]);
-    }
-
     pub fn merge_and_split_zones(
         &mut self,
         i: usize,
@@ -563,13 +543,14 @@ impl Variant {
                         }
                     }
                 }
+                let last_idx = self.zones.len() - 1;
                 if used_from_zones {
                     for i in (from_zones.unwrap().len()..(self.zones.len() - 1)).rev() {
-                        self.swap_zones(self.zones.len() - 1, zone_idx, i);
+                        self.zones[last_idx].swap(zone_idx, i);
                     }
                 } else {
                     for i in (self.manual_zones_until..(self.zones.len() - 1)).rev() {
-                        self.swap_zones(self.zones.len() - 1, zone_idx, i);
+                        self.zones[last_idx].swap(zone_idx, i);
                     }
                 }
             }
@@ -612,11 +593,9 @@ impl Variant {
                 }
                 self.set_end_zone_idx(end_zone_idx);
                 if split.swap {
-                    self.swap_zones(
-                        self.zones.len() - 1,
-                        split_idx,
-                        self.zones[self.zones.len() - 1].len() - 1,
-                    );
+                    let last_idx = self.zones.len() - 1;
+                    let swap_idx = self.zones[last_idx].len() - 1;
+                    self.zones[last_idx].swap(split_idx, swap_idx);
                 }
             }
         }
@@ -693,10 +672,7 @@ impl Layout {
         } else if self.default_variant_idx == j {
             self.default_variant_idx = i;
         }
-        let first_idx = std::cmp::min(i, j);
-        let second_idx = std::cmp::max(i, j);
-        let (first_slice, second_slice) = self.variants.split_at_mut(second_idx);
-        std::mem::swap(&mut first_slice[first_idx], &mut second_slice[0]);
+        self.variants.swap(i, j);
     }
 
     pub fn delete_variant(&mut self, idx: usize) {
