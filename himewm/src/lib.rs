@@ -1134,6 +1134,8 @@ impl WindowManager {
         if workspace.managed_window_handles.len() == 0 {
             return;
         }
+        println!("total windows: {}", self.window_info.len());
+        println!();
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];
         let monitor_rect = layout.get_monitor_rect().to_owned();
         let variant = &mut layout.get_variants_mut()[workspace.variant_idx];
@@ -1207,8 +1209,7 @@ impl WindowManager {
             .get_mut(&managed_window_handles[second_idx].0)
             .unwrap()
             .idx = first_idx;
-        let (first_slice, second_slice) = managed_window_handles.split_at_mut(second_idx);
-        std::mem::swap(&mut first_slice[first_idx], &mut second_slice[0]);
+        managed_window_handles.swap(i, j);
     }
 
     unsafe fn move_windows_across_monitors(
