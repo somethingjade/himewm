@@ -1194,21 +1194,19 @@ impl WindowManager {
         if i == j {
             return;
         }
-        let first_idx = std::cmp::min(i, j);
-        let second_idx = std::cmp::max(i, j);
         let managed_window_handles = &mut self
             .workspaces
             .get_mut(&(guid, hmonitor.0))
             .unwrap()
             .managed_window_handles;
         self.window_info
-            .get_mut(&managed_window_handles[first_idx].0)
+            .get_mut(&managed_window_handles[i].0)
             .unwrap()
-            .idx = second_idx;
+            .idx = j;
         self.window_info
-            .get_mut(&managed_window_handles[second_idx].0)
+            .get_mut(&managed_window_handles[j].0)
             .unwrap()
-            .idx = first_idx;
+            .idx = i;
         managed_window_handles.swap(i, j);
     }
 
