@@ -1134,8 +1134,6 @@ impl WindowManager {
         if workspace.managed_window_handles.len() == 0 {
             return;
         }
-        println!("total windows: {}", self.window_info.len());
-        println!();
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];
         let monitor_rect = layout.get_monitor_rect().to_owned();
         let variant = &mut layout.get_variants_mut()[workspace.variant_idx];
