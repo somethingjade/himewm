@@ -19,8 +19,9 @@ pub mod messages {
     pub const WINDOW_DESTROYED: u32 = WM_APP + 3;
     pub const STOP_MANAGING_WINDOW: u32 = WM_APP + 4;
     pub const WINDOW_CLOAKED: u32 = WM_APP + 5;
-    pub const FOREGROUND_WINDOW_CHANGED: u32 = WM_APP + 6;
-    pub const WINDOW_MOVE_FINISHED: u32 = WM_APP + 7;
+    pub const WINDOW_UNCLOAKED: u32 = WM_APP + 6;
+    pub const FOREGROUND_WINDOW_CHANGED: u32 = WM_APP + 7;
+    pub const WINDOW_MOVE_FINISHED: u32 = WM_APP + 8;
 }
 
 mod hotkey_identifiers {
@@ -132,6 +133,7 @@ pub struct WindowManager {
     grabbed_window: Option<HWND>,
     ignored_combinations: std::collections::HashSet<(GUID, *mut core::ffi::c_void)>,
     ignored_windows: std::collections::HashSet<*mut core::ffi::c_void>,
+    switching_desktops: bool,
     settings: Settings,
 }
 
@@ -162,6 +164,7 @@ impl WindowManager {
             grabbed_window: None,
             ignored_combinations: std::collections::HashSet::new(),
             ignored_windows: std::collections::HashSet::new(),
+            switching_desktops: false,
             settings,
         }
     }
@@ -335,55 +338,83 @@ impl WindowManager {
         } = window_info.to_owned();
         let new_desktop_id = match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
             Ok(guid) if guid != old_desktop_id => guid,
-            _ => return,
+            Ok(_) => {
+                self.switching_desktops = false;
+                return;
+            }
+            Err(_) => return,
         };
-        let new_idx;
         if restored && !self.ignored_windows.contains(&hwnd.0) {
             self.remove_hwnd(old_desktop_id, monitor_handle, old_idx);
-            match self.workspaces.get_mut(&(new_desktop_id, monitor_handle.0)) {
-                Some(workspace) => {
-                    workspace.managed_window_handles.push(hwnd);
-                    new_idx = workspace.managed_window_handles.len() - 1;
-                }
-                None => {
-                    self.workspaces.insert(
-                        (new_desktop_id, monitor_handle.0),
-                        Workspace::new(
-                            hwnd,
-                            self.settings.default_layout_idx,
-                            self.layouts.get(&monitor_handle.0).unwrap()
-                                [self.settings.default_layout_idx]
-                                .default_variant_idx(),
-                        ),
-                    );
-                    new_idx = 0;
-                }
-            }
-            for (h, info) in self.window_info.iter_mut() {
-                if info.desktop_id == new_desktop_id
-                    && info.monitor_handle == monitor_handle
-                    && info.idx >= new_idx
-                    && *h != hwnd.0
-                {
-                    info.idx += 1;
-                }
-            }
+            self.push_hwnd(new_desktop_id, monitor_handle, hwnd);
         } else {
-            match self.workspaces.get(&(new_desktop_id, monitor_handle.0)) {
-                Some(workspace) => {
-                    new_idx = workspace.managed_window_handles.len();
-                }
-                None => {
-                    new_idx = 0;
-                }
-            }
+            let new_idx = match self.workspaces.get(&(new_desktop_id, monitor_handle.0)) {
+                Some(workspace) => workspace.managed_window_handles.len(),
+                None => 0,
+            };
+            self.window_info.insert(
+                hwnd.0,
+                WindowInfo::new(new_desktop_id, monitor_handle, restored, new_idx),
+            );
         }
-        self.window_info.insert(
-            hwnd.0,
-            WindowInfo::new(new_desktop_id, monitor_handle, restored, new_idx),
-        );
         self.update_workspace(old_desktop_id, monitor_handle);
         self.update_workspace(new_desktop_id, monitor_handle);
+    }
+
+    unsafe fn window_uncloaked(&mut self, hwnd: HWND) {
+        if !self.switching_desktops {
+            let mut new_desktop_id = None;
+            let foreground_hwnd = match self.foreground_window {
+                Some(h) if h != hwnd => h,
+                _ => {
+                    self.switching_desktops = true;
+                    return;
+                }
+            };
+            let previous_desktop_id = self.window_info.get(&foreground_hwnd.0).unwrap().desktop_id;
+            let gathered_hwnds = self
+                .window_info
+                .iter()
+                .filter_map(|(h, info)| {
+                    if info.desktop_id == previous_desktop_id {
+                        Some(*h)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<*mut core::ffi::c_void>>();
+            for h in gathered_hwnds {
+                let info = self.window_info.get(&h).unwrap().to_owned();
+                match self.virtual_desktop_manager.GetWindowDesktopId(HWND(h)) {
+                    Ok(guid) if guid != previous_desktop_id => {
+                        if info.restored && !self.ignored_windows.contains(&hwnd.0) {
+                            self.remove_hwnd(previous_desktop_id, info.monitor_handle, info.idx);
+                            self.push_hwnd(guid, info.monitor_handle, HWND(h));
+                        } else {
+                            let new_idx = match self.workspaces.get(&(guid, info.monitor_handle.0))
+                            {
+                                Some(workspace) => workspace.managed_window_handles.len(),
+                                None => 0,
+                            };
+                            self.window_info.insert(
+                                hwnd.0,
+                                WindowInfo::new(guid, info.monitor_handle, info.restored, new_idx),
+                            );
+                        }
+                        new_desktop_id = Some(guid);
+                    }
+                    _ => (),
+                }
+            }
+            if let Some(guid) = new_desktop_id {
+                for monitor_handle in self.monitor_handles.to_owned() {
+                    self.update_workspace(previous_desktop_id, monitor_handle);
+                    self.update_workspace(guid, monitor_handle);
+                }
+            } else {
+                self.switching_desktops = true;
+            }
+        }
     }
 
     unsafe fn foreground_window_changed(&mut self, hwnd: HWND, updating: bool) {
@@ -400,12 +431,6 @@ impl WindowManager {
             monitor_handle,
             ..
         } = window_info.to_owned();
-        if self
-            .ignored_combinations
-            .contains(&(desktop_id, monitor_handle.0))
-        {
-            return;
-        }
         self.set_border_to_focused(hwnd);
         match self.foreground_window {
             Some(previous_foreground_window) if previous_foreground_window == hwnd => {
@@ -419,6 +444,12 @@ impl WindowManager {
             None => (),
         }
         self.foreground_window = Some(hwnd);
+        if self
+            .ignored_combinations
+            .contains(&(desktop_id, monitor_handle.0))
+        {
+            return;
+        }
         if !self.ignored_windows.contains(&hwnd.0) && is_restored(hwnd) {
             for (h, info) in self.window_info.iter_mut() {
                 if h != &hwnd.0
@@ -1272,7 +1303,7 @@ impl WindowManager {
             None => {
                 if window_info.restored {
                     self.workspaces.insert(
-                        (window_info.desktop_id, window_info.monitor_handle.0),
+                        (guid, hmonitor.0),
                         Workspace::new(
                             hwnd,
                             self.settings.default_layout_idx,
@@ -1285,6 +1316,7 @@ impl WindowManager {
                 window_info.idx = 0;
             }
         };
+        window_info.desktop_id = guid;
         window_info.monitor_handle = hmonitor;
         if window_info.restored {
             for (h, info) in self.window_info.iter_mut() {
@@ -1389,6 +1421,15 @@ impl WindowManager {
                 PostMessageA(
                     None,
                     messages::WINDOW_CLOAKED,
+                    WPARAM(hwnd.0 as usize),
+                    LPARAM::default(),
+                )
+                .unwrap();
+            }
+            EVENT_OBJECT_UNCLOAKED if idobject == OBJID_WINDOW.0 => {
+                PostMessageA(
+                    None,
+                    messages::WINDOW_UNCLOAKED,
                     WPARAM(hwnd.0 as usize),
                     LPARAM::default(),
                 )
@@ -1617,6 +1658,9 @@ pub unsafe fn handle_message(msg: MSG, wm: &mut WindowManager) {
         }
         messages::WINDOW_CLOAKED => {
             wm.window_cloaked(HWND(msg.wParam.0 as *mut core::ffi::c_void));
+        }
+        messages::WINDOW_UNCLOAKED => {
+            wm.window_uncloaked(HWND(msg.wParam.0 as *mut core::ffi::c_void));
         }
         messages::FOREGROUND_WINDOW_CHANGED => {
             wm.foreground_window_changed(HWND(msg.wParam.0 as *mut core::ffi::c_void), false);
