@@ -271,6 +271,9 @@ impl WindowManager {
                 );
                 self.push_hwnd(desktop_id, monitor_handle, hwnd);
                 self.initialize_border(hwnd);
+                if let None = self.foreground_window {
+                    self.foreground_window_changed(hwnd, false);
+                }
             }
             _ => return,
         }
