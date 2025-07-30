@@ -375,15 +375,28 @@ impl WindowManager {
     }
 
     unsafe fn window_uncloaked(&mut self, hwnd: HWND) {
-        let uncloaked_desktop_id = match self.window_info.get(&hwnd.0) {
-            Some(val) if val.restored => val.desktop_id,
-            _ => return,
+        let window_info = match self.window_info.get(&hwnd.0) {
+            Some(val) => val,
+            None => return,
         };
+        let WindowInfo {
+            desktop_id: uncloaked_desktop_id,
+            monitor_handle: _,
+            restored,
+            ..
+        } = window_info.to_owned();
+        // let uncloaked_desktop_id = match self.window_info.get(&hwnd.0) {
+        //     Some(val) if val.restored || self.desktop_switching_state.uncloak_count == 0 => val.desktop_id,
+        //     _ => return,
+        // };
         if self.desktop_switching_state.uncloak_count
             == self.desktop_switching_state.max_uncloak_count
         {
             self.desktop_switching_state.uncloak_count = 0;
             self.desktop_switching_state.max_uncloak_count = 0;
+        }
+        if !restored && self.desktop_switching_state.max_uncloak_count != 0 {
+            return;
         }
         if self.desktop_switching_state.uncloak_count == 0 {
             for monitor_handle in self.monitor_handles.to_owned() {
@@ -398,7 +411,9 @@ impl WindowManager {
                     None => (),
                 }
             }
-            self.desktop_switching_state.uncloak_count += 1;
+            if restored {
+                self.desktop_switching_state.uncloak_count += 1;
+            }
             let foreground_hwnd = match self.foreground_window {
                 Some(h) if h != hwnd => h,
                 _ => {
@@ -407,16 +422,21 @@ impl WindowManager {
             };
             let previous_desktop_id = self.window_info.get(&foreground_hwnd.0).unwrap().desktop_id;
             let mut new_desktop_id = None;
-            let gathered_hwnds = self
+            let mut gathered_hwnds_and_indices = self
                 .window_info
                 .iter()
                 .filter_map(|(h, info)| {
                     if info.desktop_id == previous_desktop_id {
-                        Some(*h)
+                        Some((*h, info.idx))
                     } else {
                         None
                     }
                 })
+                .collect::<Vec<(*mut core::ffi::c_void, usize)>>();
+            gathered_hwnds_and_indices.sort_by(|a, b| a.1.cmp(&b.1));
+            let gathered_hwnds = gathered_hwnds_and_indices
+                .iter()
+                .map(|(h, _idx)| *h)
                 .collect::<Vec<*mut core::ffi::c_void>>();
             for h in gathered_hwnds {
                 let info = self.window_info.get(&h).unwrap().to_owned();
