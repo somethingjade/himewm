@@ -422,7 +422,7 @@ impl WindowManager {
                 let info = self.window_info.get(&h).unwrap().to_owned();
                 match self.virtual_desktop_manager.GetWindowDesktopId(HWND(h)) {
                     Ok(guid) if guid != previous_desktop_id => {
-                        if info.restored && !self.ignored_windows.contains(&hwnd.0) {
+                        if info.restored && !self.ignored_windows.contains(&h) {
                             self.remove_hwnd(previous_desktop_id, info.monitor_handle, info.idx);
                             self.push_hwnd(guid, info.monitor_handle, HWND(h));
                         } else {
@@ -432,7 +432,7 @@ impl WindowManager {
                                 None => 0,
                             };
                             self.window_info.insert(
-                                hwnd.0,
+                                h,
                                 WindowInfo::new(guid, info.monitor_handle, info.restored, new_idx),
                             );
                         }
