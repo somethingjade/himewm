@@ -122,6 +122,20 @@ impl WindowInfo {
     }
 }
 
+struct DesktopSwitchingState {
+    uncloak_count: usize,
+    max_uncloak_count: usize,
+}
+
+impl Default for DesktopSwitchingState {
+    fn default() -> Self {
+        Self {
+            uncloak_count: 0,
+            max_uncloak_count: 0,
+        }
+    }
+}
+
 pub struct WindowManager {
     event_hook: HWINEVENTHOOK,
     virtual_desktop_manager: IVirtualDesktopManager,
@@ -133,7 +147,7 @@ pub struct WindowManager {
     grabbed_window: Option<HWND>,
     ignored_combinations: std::collections::HashSet<(GUID, *mut core::ffi::c_void)>,
     ignored_windows: std::collections::HashSet<*mut core::ffi::c_void>,
-    switching_desktops: bool,
+    desktop_switching_state: DesktopSwitchingState,
     settings: Settings,
 }
 
@@ -164,7 +178,7 @@ impl WindowManager {
             grabbed_window: None,
             ignored_combinations: std::collections::HashSet::new(),
             ignored_windows: std::collections::HashSet::new(),
-            switching_desktops: false,
+            desktop_switching_state: DesktopSwitchingState::default(),
             settings,
         }
     }
@@ -341,11 +355,7 @@ impl WindowManager {
         } = window_info.to_owned();
         let new_desktop_id = match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
             Ok(guid) if guid != old_desktop_id => guid,
-            Ok(_) => {
-                self.switching_desktops = false;
-                return;
-            }
-            Err(_) => return,
+            _ => return,
         };
         if restored && !self.ignored_windows.contains(&hwnd.0) {
             self.remove_hwnd(old_desktop_id, monitor_handle, old_idx);
@@ -365,16 +375,38 @@ impl WindowManager {
     }
 
     unsafe fn window_uncloaked(&mut self, hwnd: HWND) {
-        if !self.switching_desktops {
-            let mut new_desktop_id = None;
+        let uncloaked_desktop_id = match self.window_info.get(&hwnd.0) {
+            Some(val) if val.restored => val.desktop_id,
+            _ => return,
+        };
+        if self.desktop_switching_state.uncloak_count
+            == self.desktop_switching_state.max_uncloak_count
+        {
+            self.desktop_switching_state.uncloak_count = 0;
+            self.desktop_switching_state.max_uncloak_count = 0;
+        }
+        if self.desktop_switching_state.uncloak_count == 0 {
+            for monitor_handle in self.monitor_handles.to_owned() {
+                match self
+                    .workspaces
+                    .get(&(uncloaked_desktop_id, monitor_handle.0))
+                {
+                    Some(workspace) => {
+                        self.desktop_switching_state.max_uncloak_count +=
+                            workspace.managed_window_handles.len();
+                    }
+                    None => (),
+                }
+            }
+            self.desktop_switching_state.uncloak_count += 1;
             let foreground_hwnd = match self.foreground_window {
                 Some(h) if h != hwnd => h,
                 _ => {
-                    self.switching_desktops = true;
                     return;
                 }
             };
             let previous_desktop_id = self.window_info.get(&foreground_hwnd.0).unwrap().desktop_id;
+            let mut new_desktop_id = None;
             let gathered_hwnds = self
                 .window_info
                 .iter()
@@ -414,9 +446,9 @@ impl WindowManager {
                     self.update_workspace(previous_desktop_id, monitor_handle);
                     self.update_workspace(guid, monitor_handle);
                 }
-            } else {
-                self.switching_desktops = true;
             }
+        } else {
+            self.desktop_switching_state.uncloak_count += 1;
         }
     }
 
