@@ -333,6 +333,9 @@ impl WindowManager {
             idx,
         } = window_info.to_owned();
         window_info.restored = false;
+        if self.foreground_window == Some(hwnd) {
+            self.foreground_window = None;
+        }
         if self.grabbed_window == Some(hwnd) && !self.ignored_windows.contains(&hwnd.0) {
             self.grabbed_window = None;
         }
@@ -347,6 +350,8 @@ impl WindowManager {
             Some(val) => val,
             None => return,
         };
+        self.desktop_switching_state.uncloak_count = 0;
+        self.desktop_switching_state.max_uncloak_count = 0;
         let WindowInfo {
             desktop_id: old_desktop_id,
             monitor_handle,
@@ -381,14 +386,10 @@ impl WindowManager {
         };
         let WindowInfo {
             desktop_id: uncloaked_desktop_id,
-            monitor_handle: _,
+            monitor_handle: current_monitor_handle,
             restored,
             ..
         } = window_info.to_owned();
-        // let uncloaked_desktop_id = match self.window_info.get(&hwnd.0) {
-        //     Some(val) if val.restored || self.desktop_switching_state.uncloak_count == 0 => val.desktop_id,
-        //     _ => return,
-        // };
         if self.desktop_switching_state.uncloak_count
             == self.desktop_switching_state.max_uncloak_count
         {
@@ -416,7 +417,17 @@ impl WindowManager {
             }
             let foreground_hwnd = match self.foreground_window {
                 Some(h) if h != hwnd => h,
-                _ => {
+                Some(_) => return,
+                None => {
+                    match self
+                        .workspaces
+                        .get(&(uncloaked_desktop_id, current_monitor_handle.0))
+                    {
+                        Some(w) if w.managed_window_handles.len() > 0 => {
+                            let _ = SetForegroundWindow(w.managed_window_handles[0]);
+                        }
+                        _ => (),
+                    }
                     return;
                 }
             };
