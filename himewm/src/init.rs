@@ -1,7 +1,7 @@
 use directories::BaseDirs;
 use himewm_layout::*;
 use serde::{Deserialize, Serialize};
-use windows::Win32::Foundation::COLORREF;
+use windows::Win32::{Foundation::COLORREF, Graphics::Dwm::DWMWA_COLOR_DEFAULT};
 
 struct Directories {
     config_dir: std::path::PathBuf,
@@ -42,6 +42,7 @@ pub struct BorderSettings {
     disable_rounding: bool,
     disable_unfocused_border: bool,
     focused_border_colour: String,
+    unfocused_border_colour: String,
 }
 
 impl Default for BorderSettings {
@@ -50,6 +51,7 @@ impl Default for BorderSettings {
             disable_rounding: false,
             disable_unfocused_border: false,
             focused_border_colour: String::from("ffffff"),
+            unfocused_border_colour: String::from(""),
         }
     }
 }
@@ -124,6 +126,9 @@ impl UserSettings {
             focused_border_colour: hex_string_to_colorref(
                 self.border_settings.focused_border_colour.as_str(),
             ),
+            unfocused_border_colour: parse_unfocused_border_colour(
+                self.border_settings.unfocused_border_colour.as_str(),
+            ),
             floating_window_default_w_ratio: self.misc_settings.floating_window_default_w_ratio,
             floating_window_default_h_ratio: self.misc_settings.floating_window_default_h_ratio,
             new_window_retries: self.advanced_settings.new_window_retries,
@@ -154,6 +159,14 @@ fn hex_string_to_colorref(s: &str) -> COLORREF {
     let g = digits[2] << 4 | digits[3];
     let b = digits[4] << 4 | digits[5];
     return COLORREF(r as u32 | (g as u32) << 8 | (b as u32) << 16);
+}
+
+fn parse_unfocused_border_colour(s: &str) -> COLORREF {
+    if s.trim().len() == 0 {
+        return COLORREF(DWMWA_COLOR_DEFAULT);
+    } else {
+        return hex_string_to_colorref(s);
+    }
 }
 
 pub fn create_dirs() -> std::io::Result<()> {
