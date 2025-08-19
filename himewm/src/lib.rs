@@ -92,6 +92,7 @@ impl Settings {
 struct Workspace {
     layout_idx: usize,
     variant_idx: usize,
+    window_handles: std::collections::HashSet<*mut core::ffi::c_void>,
     managed_window_handles: Vec<HWND>,
 }
 
@@ -100,6 +101,7 @@ impl Workspace {
         Self {
             layout_idx,
             variant_idx,
+            window_handles: std::collections::HashSet::from([hwnd.0]),
             managed_window_handles: vec![hwnd],
         }
     }
@@ -308,8 +310,9 @@ impl WindowManager {
             desktop_id,
             monitor_handle,
             restored,
-            idx,
+            ..
         } = window_info.to_owned();
+        self.remove_hwnd_from_workspace(hwnd);
         self.window_info.remove(&hwnd.0);
         if self.foreground_window == Some(hwnd) {
             self.foreground_window = None;
@@ -318,7 +321,7 @@ impl WindowManager {
             self.grabbed_window = None;
         }
         if restored && !self.ignored_windows.contains(&hwnd.0) {
-            self.remove_hwnd(desktop_id, monitor_handle, idx);
+            // self.unmanage_hwnd(desktop_id, monitor_handle, idx);
             self.update_workspace(desktop_id, monitor_handle);
         }
     }
@@ -342,7 +345,7 @@ impl WindowManager {
             self.grabbed_window = None;
         }
         if !self.ignored_windows.contains(&hwnd.0) {
-            self.remove_hwnd(desktop_id, monitor_handle, idx);
+            self.unmanage_hwnd(desktop_id, monitor_handle, idx, false);
             self.update_workspace(desktop_id, monitor_handle);
         }
     }
@@ -358,14 +361,15 @@ impl WindowManager {
             desktop_id: old_desktop_id,
             monitor_handle,
             restored,
-            idx: old_idx,
+            ..
         } = window_info.to_owned();
         let new_desktop_id = match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
             Ok(guid) if guid != old_desktop_id => guid,
             _ => return,
         };
+        self.remove_hwnd_from_workspace(hwnd);
         if restored && !self.ignored_windows.contains(&hwnd.0) {
-            self.remove_hwnd(old_desktop_id, monitor_handle, old_idx);
+            // self.unmanage_hwnd(old_desktop_id, monitor_handle, old_idx);
             self.push_hwnd(new_desktop_id, monitor_handle, hwnd);
         } else {
             let new_idx = match self.workspaces.get(&(new_desktop_id, monitor_handle.0)) {
@@ -455,8 +459,9 @@ impl WindowManager {
                 let info = self.window_info.get(&h).unwrap().to_owned();
                 match self.virtual_desktop_manager.GetWindowDesktopId(HWND(h)) {
                     Ok(guid) if guid != previous_desktop_id => {
+                        self.remove_hwnd_from_workspace(HWND(h));
                         if info.restored && !self.ignored_windows.contains(&h) {
-                            self.remove_hwnd(previous_desktop_id, info.monitor_handle, info.idx);
+                            // self.unmanage_hwnd(previous_desktop_id, info.monitor_handle, info.idx);
                             self.push_hwnd(guid, info.monitor_handle, HWND(h));
                         } else {
                             let new_idx = match self.workspaces.get(&(guid, info.monitor_handle.0))
@@ -519,12 +524,13 @@ impl WindowManager {
             return;
         }
         if !self.ignored_windows.contains(&hwnd.0) && is_restored(hwnd) {
-            for (h, info) in self.window_info.iter_mut() {
-                if h != &hwnd.0
-                    && info.desktop_id == desktop_id
-                    && info.monitor_handle == monitor_handle
-                    && (!info.restored || self.ignored_windows.contains(h))
-                {
+            let workspace = self
+                .workspaces
+                .get(&(desktop_id, monitor_handle.0))
+                .unwrap();
+            for h in &workspace.window_handles {
+                let info = self.window_info.get(h).unwrap();
+                if h != &hwnd.0 && (!info.restored || self.ignored_windows.contains(h)) {
                     let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
                 }
             }
@@ -974,7 +980,8 @@ impl WindowManager {
                 );
             }
             None => {
-                self.remove_hwnd(desktop_id, original_monitor_handle, original_window_idx);
+                self.remove_hwnd_from_workspace(foreground_window);
+                // self.unmanage_hwnd(desktop_id, original_monitor_handle, original_window_idx);
                 self.workspaces.insert(
                     (desktop_id, new_monitor_handle.0),
                     Workspace::new(
@@ -1177,7 +1184,7 @@ impl WindowManager {
             }
         } else {
             self.ignored_windows.insert(foreground_window.0);
-            if let None = self.remove_hwnd(desktop_id, monitor_handle, idx) {
+            if let None = self.unmanage_hwnd(desktop_id, monitor_handle, idx, false) {
                 return;
             }
             self.update_workspace(desktop_id, monitor_handle);
@@ -1273,7 +1280,7 @@ impl WindowManager {
         }
         if let Some(v) = error_indices {
             for (i, error_idx) in v.iter().enumerate() {
-                self.remove_hwnd(guid, hmonitor, *error_idx - i);
+                self.unmanage_hwnd(guid, hmonitor, *error_idx - i, true);
             }
             self.update_workspace(guid, hmonitor);
         }
@@ -1315,7 +1322,7 @@ impl WindowManager {
         first_idx: usize,
         second_idx: usize,
     ) {
-        let hwnd = match self.remove_hwnd(guid, first_hmonitor, first_idx) {
+        let hwnd = match self.unmanage_hwnd(guid, first_hmonitor, first_idx, true) {
             Some(val) => val,
             None => return,
         };
@@ -1356,17 +1363,45 @@ impl WindowManager {
         self.set_border_to_unfocused(hwnd);
     }
 
+    fn remove_hwnd_from_workspace(&mut self, hwnd: HWND) {
+        let window_info = match self.window_info.get_mut(&hwnd.0) {
+            Some(val) => val,
+            None => return,
+        };
+        let WindowInfo {
+            desktop_id,
+            monitor_handle,
+            restored,
+            idx,
+        } = window_info.to_owned();
+        if let Some(workspace) = self.workspaces.get_mut(&(desktop_id, monitor_handle.0)) {
+            workspace.window_handles.remove(&hwnd.0);
+            if restored {
+                self.unmanage_hwnd(desktop_id, monitor_handle, idx, false);
+            }
+        }
+    }
+
     unsafe fn insert_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, idx: usize, hwnd: HWND) {
         let window_info = match self.window_info.get_mut(&hwnd.0) {
             Some(val) => val,
             None => return,
         };
+        window_info.desktop_id = guid;
+        window_info.monitor_handle = hmonitor;
         match self.workspaces.get_mut(&(guid, hmonitor.0)) {
             Some(workspace) => {
+                workspace.window_handles.insert(hwnd.0);
+                window_info.idx = idx;
                 if window_info.restored {
                     workspace.managed_window_handles.insert(idx, hwnd);
+                    for h in &workspace.window_handles {
+                        let info = self.window_info.get_mut(h).unwrap();
+                        if *h != hwnd.0 && info.idx >= idx {
+                            info.idx += 1;
+                        }
+                    }
                 }
-                window_info.idx = idx;
             }
             None => {
                 if window_info.restored {
@@ -1384,19 +1419,6 @@ impl WindowManager {
                 window_info.idx = 0;
             }
         };
-        window_info.desktop_id = guid;
-        window_info.monitor_handle = hmonitor;
-        if window_info.restored {
-            for (h, info) in self.window_info.iter_mut() {
-                if info.desktop_id == guid
-                    && info.monitor_handle == hmonitor
-                    && info.idx >= idx
-                    && *h != hwnd.0
-                {
-                    info.idx += 1;
-                }
-            }
-        }
     }
 
     unsafe fn push_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
@@ -1408,14 +1430,24 @@ impl WindowManager {
         self.insert_hwnd(guid, hmonitor, idx, hwnd);
     }
 
-    fn remove_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, idx: usize) -> Option<HWND> {
+    fn unmanage_hwnd(
+        &mut self,
+        guid: GUID,
+        hmonitor: HMONITOR,
+        idx: usize,
+        remove_from_workspace: bool,
+    ) -> Option<HWND> {
         let workspace = match self.workspaces.get_mut(&(guid, hmonitor.0)) {
             Some(val) => val,
             None => return None,
         };
         let hwnd = workspace.managed_window_handles.remove(idx);
-        for info in self.window_info.values_mut() {
-            if info.desktop_id == guid && info.monitor_handle == hmonitor && info.idx > idx {
+        if remove_from_workspace {
+            workspace.window_handles.remove(&hwnd.0);
+        }
+        for h in &workspace.window_handles {
+            let info = self.window_info.get_mut(h).unwrap();
+            if info.idx > idx {
                 info.idx -= 1;
             }
         }
