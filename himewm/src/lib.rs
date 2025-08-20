@@ -520,14 +520,12 @@ impl WindowManager {
             return;
         }
         if !self.ignored_windows.contains(&hwnd.0) && is_restored(hwnd) {
-            let workspace = self
-                .workspaces
-                .get(&(desktop_id, monitor_handle.0))
-                .unwrap();
-            for h in &workspace.window_handles {
-                let info = self.window_info.get(h).unwrap();
-                if h != &hwnd.0 && (!info.restored || self.ignored_windows.contains(h)) {
-                    let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
+            if let Some(workspace) = self.workspaces.get(&(desktop_id, monitor_handle.0)) {
+                for h in &workspace.window_handles {
+                    let info = self.window_info.get(h).unwrap();
+                    if h != &hwnd.0 && (!info.restored || self.ignored_windows.contains(h)) {
+                        let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
+                    }
                 }
             }
         }
