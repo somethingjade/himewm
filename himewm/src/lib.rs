@@ -406,21 +406,6 @@ impl WindowManager {
             return;
         }
         if self.desktop_switching_state.uncloak_count == 0 {
-            for monitor_handle in self.monitor_handles.to_owned() {
-                match self
-                    .workspaces
-                    .get(&(uncloaked_desktop_id, monitor_handle.0))
-                {
-                    Some(workspace) => {
-                        self.desktop_switching_state.max_uncloak_count +=
-                            workspace.managed_window_handles.len();
-                    }
-                    None => (),
-                }
-            }
-            if restored {
-                self.desktop_switching_state.uncloak_count += 1;
-            }
             let foreground_hwnd = match self.foreground_window {
                 Some(h) if h != hwnd => h,
                 Some(_) => return,
@@ -438,18 +423,29 @@ impl WindowManager {
                 }
             };
             let previous_desktop_id = self.window_info.get(&foreground_hwnd.0).unwrap().desktop_id;
-            let mut new_desktop_id = None;
-            let mut gathered_hwnds_and_indices = self
-                .window_info
-                .iter()
-                .filter_map(|(h, info)| {
-                    if info.desktop_id == previous_desktop_id {
-                        Some((*h, info.idx))
-                    } else {
-                        None
+            let mut gathered_hwnds_and_indices = Vec::new();
+            for monitor_handle in self.monitor_handles.to_owned() {
+                if let Some(workspace) = self
+                    .workspaces
+                    .get(&(uncloaked_desktop_id, monitor_handle.0))
+                {
+                    self.desktop_switching_state.max_uncloak_count +=
+                        workspace.managed_window_handles.len();
+                }
+                if let Some(workspace) = self
+                    .workspaces
+                    .get(&(previous_desktop_id, monitor_handle.0))
+                {
+                    for h in &workspace.window_handles {
+                        let idx = self.window_info.get(h).unwrap().idx;
+                        gathered_hwnds_and_indices.push((*h, idx));
                     }
-                })
-                .collect::<Vec<(*mut core::ffi::c_void, usize)>>();
+                }
+            }
+            if restored {
+                self.desktop_switching_state.uncloak_count += 1;
+            }
+            let mut new_desktop_id = None;
             gathered_hwnds_and_indices.sort_by(|a, b| a.1.cmp(&b.1));
             let gathered_hwnds = gathered_hwnds_and_indices
                 .iter()
