@@ -702,6 +702,9 @@ impl WindowManager {
             Some(hwnd) => hwnd,
             None => return,
         };
+        if self.ignored_windows.contains(&foreground_window.0) {
+            return;
+        }
         let window_info = match self.window_info.get(&foreground_window.0) {
             Some(val) if val.restored => val,
             _ => return,
