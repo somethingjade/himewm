@@ -8,7 +8,7 @@ use himewm::*;
 fn main() {
     // Maybe error handle this
     let _create_dirs = init::create_dirs();
-    let user_settings = init::initialize_settings();
+    let user_settings = user_settings::initialize_settings();
     let mut msg = MSG::default();
     unsafe {
         let layouts = match init::initialize_layouts() {

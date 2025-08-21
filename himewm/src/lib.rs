@@ -1,3 +1,4 @@
 pub mod init;
-pub mod wm;
 pub mod tray_menu;
+pub mod user_settings;
+pub mod wm;
