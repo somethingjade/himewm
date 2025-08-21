@@ -3,9 +3,7 @@ use windows::Win32::{
     System::Com::*,
     UI::{Accessibility::*, WindowsAndMessaging::*},
 };
-
-mod init;
-mod tray_menu;
+use himewm::*;
 
 fn main() {
     // Maybe error handle this
@@ -16,17 +14,17 @@ fn main() {
         let layouts = match init::initialize_layouts() {
             Some(val) => val,
             None => {
-                himewm::show_error_message("No layouts found");
+                wm::show_error_message("No layouts found");
                 return;
             }
         };
-        himewm::register_hotkeys();
+        wm::register_hotkeys();
         let _create_tray_icon = tray_menu::create();
         tray_menu::set_menu_event_handler();
-        let mut wm = himewm::WindowManager::new(user_settings.to_settings(&layouts));
+        let mut wm = wm::WindowManager::new(user_settings.to_settings(&layouts));
         wm.initialize(layouts.into_iter().map(|(_, layout)| layout).collect());
         while GetMessageA(&mut msg, None, 0, 0).as_bool() {
-            himewm::handle_message(msg, &mut wm);
+            wm::handle_message(msg, &mut wm);
             let _translate_message = TranslateMessage(&msg);
             DispatchMessageA(&msg);
         }

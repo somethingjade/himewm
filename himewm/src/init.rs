@@ -107,7 +107,7 @@ impl UserSettings {
     pub fn to_settings(
         &self,
         layouts: &Vec<(std::path::PathBuf, himewm_layout::Layout)>,
-    ) -> himewm::Settings {
+    ) -> crate::wm::Settings {
         let mut idx = 0;
         if self.layout_settings.default_layout != std::path::Path::new("") {
             for (i, (p, _)) in layouts.iter().enumerate() {
@@ -117,7 +117,7 @@ impl UserSettings {
                 }
             }
         }
-        return himewm::Settings {
+        return crate::wm::Settings {
             default_layout_idx: idx,
             window_padding: self.layout_settings.window_padding,
             edge_padding: self.layout_settings.edge_padding,
