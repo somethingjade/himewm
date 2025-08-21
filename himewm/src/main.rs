@@ -1,9 +1,9 @@
 #![windows_subsystem = "windows"]
+use himewm::*;
 use windows::Win32::{
     System::Com::*,
     UI::{Accessibility::*, WindowsAndMessaging::*},
 };
-use himewm::*;
 
 fn main() {
     // Maybe error handle this

@@ -5,10 +5,7 @@ use windows::{
         Foundation::*,
         Graphics::{Dwm::*, Gdi::*},
         System::Com::*,
-        UI::{
-            Accessibility::*, HiDpi::*, Shell::*,
-            WindowsAndMessaging::*,
-        },
+        UI::{Accessibility::*, HiDpi::*, Shell::*, WindowsAndMessaging::*},
     },
 };
 
