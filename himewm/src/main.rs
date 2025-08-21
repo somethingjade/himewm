@@ -14,11 +14,11 @@ fn main() {
         let layouts = match init::initialize_layouts() {
             Some(val) => val,
             None => {
-                wm::show_error_message("No layouts found");
+                util::show_error_message("No layouts found");
                 return;
             }
         };
-        wm::register_hotkeys();
+        keybinds::register_hotkeys();
         let _create_tray_icon = tray_menu::create();
         tray_menu::set_menu_event_handler();
         let mut wm = wm::WindowManager::new(user_settings.to_settings(&layouts));

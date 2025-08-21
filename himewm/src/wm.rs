@@ -4,9 +4,9 @@ use windows::{
     Win32::{
         Foundation::*,
         Graphics::{Dwm::*, Gdi::*},
-        System::{Com::*, Console::*},
+        System::Com::*,
         UI::{
-            Accessibility::*, HiDpi::*, Input::KeyboardAndMouse::*, Shell::*,
+            Accessibility::*, HiDpi::*, Shell::*,
             WindowsAndMessaging::*,
         },
     },
@@ -22,25 +22,6 @@ pub mod messages {
     pub const WINDOW_UNCLOAKED: u32 = WM_APP + 6;
     pub const FOREGROUND_WINDOW_CHANGED: u32 = WM_APP + 7;
     pub const WINDOW_MOVE_FINISHED: u32 = WM_APP + 8;
-}
-
-mod hotkey_identifiers {
-    pub const FOCUS_PREVIOUS: usize = 0;
-    pub const FOCUS_NEXT: usize = 1;
-    pub const SWAP_PREVIOUS: usize = 2;
-    pub const SWAP_NEXT: usize = 3;
-    pub const VARIANT_PREVIOUS: usize = 4;
-    pub const VARIANT_NEXT: usize = 5;
-    pub const LAYOUT_PREVIOUS: usize = 6;
-    pub const LAYOUT_NEXT: usize = 7;
-    pub const FOCUS_PREVIOUS_MONITOR: usize = 8;
-    pub const FOCUS_NEXT_MONITOR: usize = 9;
-    pub const MOVE_TO_PREVIOUS_MONITOR: usize = 10;
-    pub const MOVE_TO_NEXT_MONITOR: usize = 11;
-    pub const GRAB_WINDOW: usize = 12;
-    pub const RELEASE_WINDOW: usize = 13;
-    pub const TOGGLE_WINDOW: usize = 14;
-    pub const TOGGLE_WORKSPACE: usize = 15;
 }
 
 enum CycleDirection {
@@ -197,7 +178,7 @@ impl WindowManager {
         for layout in layouts {
             let monitor_rect = layout.get_monitor_rect();
             for (hmonitor, layouts) in self.layouts.iter_mut() {
-                let mut layout = match convert_for_monitor(&layout, HMONITOR(*hmonitor)) {
+                let mut layout = match convert_layout_for_monitor(&layout, HMONITOR(*hmonitor)) {
                     Some(val) => val,
                     None => layout.clone(),
                 };
@@ -1605,7 +1586,7 @@ unsafe fn is_overlappedwindow(hwnd: HWND) -> bool {
     GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW.0 as isize != 0
 }
 
-pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option<Layout> {
+pub unsafe fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option<Layout> {
     let mut monitor_info = MONITORINFO::default();
     monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
     let _ = GetMonitorInfoA(hmonitor, &mut monitor_info);
@@ -1646,95 +1627,6 @@ pub unsafe fn convert_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
     return Some(ret);
 }
 
-pub unsafe fn register_hotkeys() {
-    let _focus_previous = RegisterHotKey(
-        None,
-        hotkey_identifiers::FOCUS_PREVIOUS as i32,
-        MOD_ALT,
-        0x4A,
-    );
-    let _focus_next = RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT as i32, MOD_ALT, 0x4B);
-    let _swap_previous = RegisterHotKey(
-        None,
-        hotkey_identifiers::SWAP_PREVIOUS as i32,
-        MOD_ALT,
-        0x48,
-    );
-    let _swap_next = RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT as i32, MOD_ALT, 0x4C);
-    let _variant_previous = RegisterHotKey(
-        None,
-        hotkey_identifiers::VARIANT_PREVIOUS as i32,
-        MOD_ALT | MOD_SHIFT,
-        0x4A,
-    );
-    let _variant_next = RegisterHotKey(
-        None,
-        hotkey_identifiers::VARIANT_NEXT as i32,
-        MOD_ALT | MOD_SHIFT,
-        0x4B,
-    );
-    let _layout_previous = RegisterHotKey(
-        None,
-        hotkey_identifiers::LAYOUT_PREVIOUS as i32,
-        MOD_ALT | MOD_SHIFT,
-        0x48,
-    );
-    let _layout_next = RegisterHotKey(
-        None,
-        hotkey_identifiers::LAYOUT_NEXT as i32,
-        MOD_ALT | MOD_SHIFT,
-        0x4C,
-    );
-    let _focus_previous_monitor = RegisterHotKey(
-        None,
-        hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32,
-        MOD_ALT,
-        0x55,
-    );
-    let _focus_next_monitor = RegisterHotKey(
-        None,
-        hotkey_identifiers::FOCUS_NEXT_MONITOR as i32,
-        MOD_ALT,
-        0x49,
-    );
-    let _move_to_previous_monitor = RegisterHotKey(
-        None,
-        hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR as i32,
-        MOD_ALT,
-        0x59,
-    );
-    let _move_to_next_monitor = RegisterHotKey(
-        None,
-        hotkey_identifiers::MOVE_TO_NEXT_MONITOR as i32,
-        MOD_ALT,
-        0x4F,
-    );
-    let _grab_window = RegisterHotKey(
-        None,
-        hotkey_identifiers::GRAB_WINDOW as i32,
-        MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,
-        0x55,
-    );
-    let _release_window = RegisterHotKey(
-        None,
-        hotkey_identifiers::RELEASE_WINDOW as i32,
-        MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,
-        0x49,
-    );
-    let _toggle_window = RegisterHotKey(
-        None,
-        hotkey_identifiers::TOGGLE_WINDOW as i32,
-        MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,
-        0x59,
-    );
-    let _toggle_workspace = RegisterHotKey(
-        None,
-        hotkey_identifiers::TOGGLE_WORKSPACE as i32,
-        MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,
-        0x4F,
-    );
-}
-
 pub unsafe fn handle_message(msg: MSG, wm: &mut WindowManager) {
     match msg.message {
         messages::WINDOW_CREATED => {
@@ -1766,69 +1658,56 @@ pub unsafe fn handle_message(msg: MSG, wm: &mut WindowManager) {
             wm.window_move_finished(HWND(msg.wParam.0 as *mut core::ffi::c_void));
         }
         WM_HOTKEY => match msg.wParam.0 {
-            hotkey_identifiers::FOCUS_PREVIOUS => {
+            crate::keybinds::hotkey_identifiers::FOCUS_PREVIOUS => {
                 wm.cycle_focus(CycleDirection::Previous);
             }
-            hotkey_identifiers::FOCUS_NEXT => {
+            crate::keybinds::hotkey_identifiers::FOCUS_NEXT => {
                 wm.cycle_focus(CycleDirection::Next);
             }
-            hotkey_identifiers::SWAP_PREVIOUS => {
+            crate::keybinds::hotkey_identifiers::SWAP_PREVIOUS => {
                 wm.cycle_swap(CycleDirection::Previous);
             }
-            hotkey_identifiers::SWAP_NEXT => {
+            crate::keybinds::hotkey_identifiers::SWAP_NEXT => {
                 wm.cycle_swap(CycleDirection::Next);
             }
-            hotkey_identifiers::VARIANT_PREVIOUS => {
+            crate::keybinds::hotkey_identifiers::VARIANT_PREVIOUS => {
                 wm.cycle_variant(CycleDirection::Previous);
             }
-            hotkey_identifiers::VARIANT_NEXT => {
+            crate::keybinds::hotkey_identifiers::VARIANT_NEXT => {
                 wm.cycle_variant(CycleDirection::Next);
             }
-            hotkey_identifiers::LAYOUT_PREVIOUS => {
+            crate::keybinds::hotkey_identifiers::LAYOUT_PREVIOUS => {
                 wm.cycle_layout(CycleDirection::Previous);
             }
-            hotkey_identifiers::LAYOUT_NEXT => {
+            crate::keybinds::hotkey_identifiers::LAYOUT_NEXT => {
                 wm.cycle_layout(CycleDirection::Next);
             }
-            hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
+            crate::keybinds::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
                 wm.cycle_focused_monitor(CycleDirection::Previous);
             }
-            hotkey_identifiers::FOCUS_NEXT_MONITOR => {
+            crate::keybinds::hotkey_identifiers::FOCUS_NEXT_MONITOR => {
                 wm.cycle_focused_monitor(CycleDirection::Next);
             }
-            hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
+            crate::keybinds::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
                 wm.cycle_assigned_monitor(CycleDirection::Previous);
             }
-            hotkey_identifiers::MOVE_TO_NEXT_MONITOR => {
+            crate::keybinds::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => {
                 wm.cycle_assigned_monitor(CycleDirection::Next);
             }
-            hotkey_identifiers::GRAB_WINDOW => {
+            crate::keybinds::hotkey_identifiers::GRAB_WINDOW => {
                 wm.grab_window();
             }
-            hotkey_identifiers::RELEASE_WINDOW => {
+            crate::keybinds::hotkey_identifiers::RELEASE_WINDOW => {
                 wm.release_window();
             }
-            hotkey_identifiers::TOGGLE_WINDOW => {
+            crate::keybinds::hotkey_identifiers::TOGGLE_WINDOW => {
                 wm.toggle_window();
             }
-            hotkey_identifiers::TOGGLE_WORKSPACE => {
+            crate::keybinds::hotkey_identifiers::TOGGLE_WORKSPACE => {
                 wm.toggle_workspace();
             }
             _ => (),
         },
         _ => (),
     }
-}
-
-pub unsafe fn show_error_message(message: &str) {
-    let _free_console = FreeConsole();
-    let _alloc_console = AllocConsole();
-    let handle = GetStdHandle(STD_INPUT_HANDLE).unwrap();
-    let mut console_mode = CONSOLE_MODE::default();
-    let _get_console_mode = GetConsoleMode(handle, &mut console_mode);
-    let _set_console_mode = SetConsoleMode(handle, console_mode & !ENABLE_ECHO_INPUT);
-    println!("{}", message);
-    println!("Press ENTER to exit");
-    let mut buf = String::new();
-    let _read_line = std::io::stdin().read_line(&mut buf);
 }
