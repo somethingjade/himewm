@@ -1,13 +1,10 @@
 use windows::{
-    core::PSTR, 
+    core::PSTR,
     Win32::{
-        Foundation::*, 
-        System::{
-            Console::*,
-            Threading::*,
-        }, 
+        Foundation::*,
+        System::{Console::*, Threading::*},
         UI::WindowsAndMessaging::*,
-    }
+    },
 };
 
 const MAX_PATH_LEN: usize = 1024;
@@ -38,7 +35,12 @@ pub unsafe fn get_exe_name(hwnd: HWND) -> Result<String, std::string::FromUtf8Er
     let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, id).unwrap();
     let mut buf = [0 as u8; MAX_PATH_LEN];
     let mut size = MAX_PATH_LEN as u32;
-    let _query = QueryFullProcessImageNameA(handle, PROCESS_NAME_FORMAT(0), PSTR(&mut buf as *mut u8), &mut size);
+    let _query = QueryFullProcessImageNameA(
+        handle,
+        PROCESS_NAME_FORMAT(0),
+        PSTR(&mut buf as *mut u8),
+        &mut size,
+    );
     let _close_handle = CloseHandle(handle);
     let path_string = String::from_utf8(Vec::from(&buf[0..size as usize]))?;
     let path = std::path::Path::new(&path_string);
