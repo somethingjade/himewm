@@ -1438,11 +1438,11 @@ impl WindowManager {
         _ideventthread: u32,
         _dwmseventtime: u32,
     ) {
-        if event == EVENT_OBJECT_LOCATIONCHANGE {
-            if !is_overlappedwindow(hwnd) {
+        if event == EVENT_OBJECT_DESTROY {
+            if !has_sizebox(hwnd) {
                 return;
             }
-        } else if !has_sizebox(hwnd) {
+        } else if !is_overlapped_window(hwnd) {
             return;
         }
         match event {
@@ -1542,7 +1542,7 @@ impl WindowManager {
         if monitor_handle.is_invalid() {
             return true.into();
         }
-        if !IsWindowVisible(hwnd).as_bool() || !is_overlappedwindow(hwnd) {
+        if !IsWindowVisible(hwnd).as_bool() || !is_overlapped_window(hwnd) {
             return true.into();
         }
         wm.window_info.insert(
@@ -1579,7 +1579,7 @@ unsafe fn has_sizebox(hwnd: HWND) -> bool {
     GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_SIZEBOX.0 as isize != 0
 }
 
-unsafe fn is_overlappedwindow(hwnd: HWND) -> bool {
+unsafe fn is_overlapped_window(hwnd: HWND) -> bool {
     GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW.0 as isize != 0
 }
 
