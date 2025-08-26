@@ -22,7 +22,7 @@ pub unsafe fn show_error_message(message: &str) {
     let _read_line = std::io::stdin().read_line(&mut buf);
 }
 
-pub unsafe fn get_window_name(hwnd: HWND) -> Result<String, std::string::FromUtf8Error> {
+pub unsafe fn get_window_title(hwnd: HWND) -> Result<String, std::string::FromUtf8Error> {
     let len = GetWindowTextLengthA(hwnd) as usize;
     let mut buf = vec![0 as u8; len + 1];
     GetWindowTextA(hwnd, &mut buf);

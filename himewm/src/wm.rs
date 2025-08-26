@@ -1,3 +1,4 @@
+use crate::{keybinds, util, window_rules};
 use himewm_layout::*;
 use windows::{
     core::*,
@@ -75,7 +76,16 @@ struct Workspace {
 }
 
 impl Workspace {
-    unsafe fn new(hwnd: HWND, layout_idx: usize, variant_idx: usize) -> Self {
+    fn new(hwnd: HWND, layout_idx: usize, variant_idx: usize) -> Self {
+        Self {
+            layout_idx,
+            variant_idx,
+            window_handles: std::collections::HashSet::from([hwnd.0]),
+            managed_window_handles: Vec::new(),
+        }
+    }
+
+    fn insert_into_new(hwnd: HWND, layout_idx: usize, variant_idx: usize) -> Self {
         Self {
             layout_idx,
             variant_idx,
@@ -131,10 +141,11 @@ pub struct WindowManager {
     ignored_windows: std::collections::HashSet<*mut core::ffi::c_void>,
     desktop_switching_state: DesktopSwitchingState,
     settings: Settings,
+    window_rules: window_rules::InternalWindowRules,
 }
 
 impl WindowManager {
-    pub unsafe fn new(settings: Settings) -> Self {
+    pub unsafe fn new(settings: Settings, window_rules: window_rules::InternalWindowRules) -> Self {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         Self {
             event_hook: SetWinEventHook(
@@ -162,6 +173,7 @@ impl WindowManager {
             ignored_windows: std::collections::HashSet::new(),
             desktop_switching_state: DesktopSwitchingState::default(),
             settings,
+            window_rules,
         }
     }
 
@@ -265,7 +277,22 @@ impl WindowManager {
                     hwnd.0,
                     WindowInfo::new(desktop_id, monitor_handle, is_restored(hwnd), 0),
                 );
-                self.push_hwnd(desktop_id, monitor_handle, hwnd);
+                match self.handle_window_rule(hwnd) {
+                    Some(rule) => match rule {
+                        window_rules::InternalRule::LayoutIdx(idx) => {
+                            self.push_hwnd(desktop_id, monitor_handle, hwnd);
+                            if let Some(workspace) =
+                                self.workspaces.get_mut(&(desktop_id, monitor_handle.0))
+                            {
+                                workspace.layout_idx = idx;
+                            }
+                        }
+                        window_rules::InternalRule::StartFloating(_) => {
+                            self.add_hwnd_to_workspace(desktop_id, monitor_handle, hwnd);
+                        }
+                    },
+                    None => self.push_hwnd(desktop_id, monitor_handle, hwnd),
+                }
                 self.initialize_border(hwnd);
                 if let None = self.foreground_window {
                     self.foreground_window_changed(hwnd, false);
@@ -548,7 +575,7 @@ impl WindowManager {
                         .remove(idx);
                     self.workspaces.insert(
                         (desktop_id, new_monitor_handle.0),
-                        Workspace::new(
+                        Workspace::insert_into_new(
                             hwnd,
                             self.settings.default_layout_idx,
                             self.layouts.get(&new_monitor_handle.0).unwrap()
@@ -959,7 +986,7 @@ impl WindowManager {
                 // self.unmanage_hwnd(desktop_id, original_monitor_handle, original_window_idx);
                 self.workspaces.insert(
                     (desktop_id, new_monitor_handle.0),
-                    Workspace::new(
+                    Workspace::insert_into_new(
                         foreground_window,
                         self.settings.default_layout_idx,
                         self.layouts.get(&new_monitor_handle.0).unwrap()
@@ -1163,20 +1190,7 @@ impl WindowManager {
                 return;
             }
             self.update_workspace(desktop_id, monitor_handle);
-            let workspace = self
-                .workspaces
-                .get(&(desktop_id, monitor_handle.0))
-                .unwrap();
-            let monitor_rect = self.layouts.get_mut(&monitor_handle.0).unwrap()
-                [workspace.layout_idx]
-                .get_monitor_rect();
-            let w = ((monitor_rect.w() as f64) * self.settings.floating_window_default_w_ratio)
-                .round() as i32;
-            let h = ((monitor_rect.h() as f64) * self.settings.floating_window_default_h_ratio)
-                .round() as i32;
-            let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.left;
-            let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.top;
-            let _ = SetWindowPos(foreground_window, None, x, y, w, h, SWP_NOZORDER);
+            self.center_window(foreground_window);
         }
     }
 
@@ -1338,6 +1352,57 @@ impl WindowManager {
         self.set_border_to_unfocused(hwnd);
     }
 
+    unsafe fn center_window(&self, hwnd: HWND) {
+        let window_info = match self.window_info.get(&hwnd.0) {
+            Some(val) => val,
+            None => return,
+        };
+        let WindowInfo {
+            desktop_id,
+            monitor_handle,
+            ..
+        } = window_info.to_owned();
+        let workspace = self
+            .workspaces
+            .get(&(desktop_id, monitor_handle.0))
+            .unwrap();
+        let monitor_rect =
+            self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].get_monitor_rect();
+        let w = ((monitor_rect.w() as f64) * self.settings.floating_window_default_w_ratio).round()
+            as i32;
+        let h = ((monitor_rect.h() as f64) * self.settings.floating_window_default_h_ratio).round()
+            as i32;
+        let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.left;
+        let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.top;
+        let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+    }
+
+    fn add_hwnd_to_workspace(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
+        let window_info = match self.window_info.get_mut(&hwnd.0) {
+            Some(val) => val,
+            None => return,
+        };
+        window_info.desktop_id = guid;
+        window_info.monitor_handle = hmonitor;
+        match self.workspaces.get_mut(&(guid, hmonitor.0)) {
+            Some(workspace) => {
+                workspace.window_handles.insert(hwnd.0);
+            }
+            None => {
+                self.workspaces.insert(
+                    (guid, hmonitor.0),
+                    Workspace::new(
+                        hwnd,
+                        self.settings.default_layout_idx,
+                        self.layouts.get(&window_info.monitor_handle.0).unwrap()
+                            [self.settings.default_layout_idx]
+                            .default_variant_idx(),
+                    ),
+                );
+            }
+        }
+    }
+
     fn remove_hwnd_from_workspace(&mut self, hwnd: HWND) {
         let window_info = match self.window_info.get_mut(&hwnd.0) {
             Some(val) => val,
@@ -1357,7 +1422,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn insert_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, idx: usize, hwnd: HWND) {
+    fn insert_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, idx: usize, hwnd: HWND) {
         let window_info = match self.window_info.get_mut(&hwnd.0) {
             Some(val) => val,
             None => return,
@@ -1382,7 +1447,7 @@ impl WindowManager {
                 if window_info.restored {
                     self.workspaces.insert(
                         (guid, hmonitor.0),
-                        Workspace::new(
+                        Workspace::insert_into_new(
                             hwnd,
                             self.settings.default_layout_idx,
                             self.layouts.get(&window_info.monitor_handle.0).unwrap()
@@ -1396,7 +1461,7 @@ impl WindowManager {
         };
     }
 
-    unsafe fn push_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
+    fn push_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
         let idx = if let Some(workspace) = self.workspaces.get(&(guid, hmonitor.0)) {
             workspace.managed_window_handles.len()
         } else {
@@ -1427,6 +1492,34 @@ impl WindowManager {
             }
         }
         return Some(hwnd);
+    }
+
+    unsafe fn handle_window_rule(&mut self, hwnd: HWND) -> Option<window_rules::InternalRule> {
+        match util::get_window_title(hwnd) {
+            Ok(title) => {
+                for window_rule in &self.window_rules.title_window_rules {
+                    if window_rule.regex.is_match(&title) {
+                        match &window_rule.rule {
+                            window_rules::InternalRule::LayoutIdx(_) => (),
+                            window_rules::InternalRule::StartFloating(set_position) => {
+                                self.ignored_windows.insert(hwnd.0);
+                                match set_position {
+                                    window_rules::SetPosition::Default => (),
+                                    window_rules::SetPosition::Center => self.center_window(hwnd),
+                                    window_rules::SetPosition::Position { x, y, w, h } => {
+                                        let _ =
+                                            SetWindowPos(hwnd, None, *x, *y, *w, *h, SWP_NOZORDER);
+                                    }
+                                }
+                            }
+                        }
+                        return Some(window_rule.rule.to_owned());
+                    }
+                }
+                return None;
+            }
+            Err(_) => return None,
+        }
     }
 
     unsafe extern "system" fn event_handler(
@@ -1539,17 +1632,31 @@ impl WindowManager {
             _ => return true.into(),
         };
         let monitor_handle = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
-        if monitor_handle.is_invalid() {
-            return true.into();
-        }
-        if !IsWindowVisible(hwnd).as_bool() || !is_overlapped_window(hwnd) {
+        if monitor_handle.is_invalid()
+            || !IsWindowVisible(hwnd).as_bool()
+            || !is_overlapped_window(hwnd)
+        {
             return true.into();
         }
         wm.window_info.insert(
             hwnd.0,
             WindowInfo::new(desktop_id, monitor_handle, is_restored(hwnd), 0),
         );
-        wm.push_hwnd(desktop_id, monitor_handle, hwnd);
+        match wm.handle_window_rule(hwnd) {
+            Some(rule) => match rule {
+                window_rules::InternalRule::LayoutIdx(idx) => {
+                    wm.push_hwnd(desktop_id, monitor_handle, hwnd);
+                    if let Some(workspace) = wm.workspaces.get_mut(&(desktop_id, monitor_handle.0))
+                    {
+                        workspace.layout_idx = idx;
+                    }
+                }
+                window_rules::InternalRule::StartFloating(_) => {
+                    wm.add_hwnd_to_workspace(desktop_id, monitor_handle, hwnd);
+                }
+            },
+            None => wm.push_hwnd(desktop_id, monitor_handle, hwnd),
+        }
         wm.initialize_border(hwnd);
         return true.into();
     }
@@ -1655,52 +1762,52 @@ pub unsafe fn handle_message(msg: MSG, wm: &mut WindowManager) {
             wm.window_move_finished(HWND(msg.wParam.0 as *mut core::ffi::c_void));
         }
         WM_HOTKEY => match msg.wParam.0 {
-            crate::keybinds::hotkey_identifiers::FOCUS_PREVIOUS => {
+            keybinds::hotkey_identifiers::FOCUS_PREVIOUS => {
                 wm.cycle_focus(CycleDirection::Previous);
             }
-            crate::keybinds::hotkey_identifiers::FOCUS_NEXT => {
+            keybinds::hotkey_identifiers::FOCUS_NEXT => {
                 wm.cycle_focus(CycleDirection::Next);
             }
-            crate::keybinds::hotkey_identifiers::SWAP_PREVIOUS => {
+            keybinds::hotkey_identifiers::SWAP_PREVIOUS => {
                 wm.cycle_swap(CycleDirection::Previous);
             }
-            crate::keybinds::hotkey_identifiers::SWAP_NEXT => {
+            keybinds::hotkey_identifiers::SWAP_NEXT => {
                 wm.cycle_swap(CycleDirection::Next);
             }
-            crate::keybinds::hotkey_identifiers::VARIANT_PREVIOUS => {
+            keybinds::hotkey_identifiers::VARIANT_PREVIOUS => {
                 wm.cycle_variant(CycleDirection::Previous);
             }
-            crate::keybinds::hotkey_identifiers::VARIANT_NEXT => {
+            keybinds::hotkey_identifiers::VARIANT_NEXT => {
                 wm.cycle_variant(CycleDirection::Next);
             }
-            crate::keybinds::hotkey_identifiers::LAYOUT_PREVIOUS => {
+            keybinds::hotkey_identifiers::LAYOUT_PREVIOUS => {
                 wm.cycle_layout(CycleDirection::Previous);
             }
-            crate::keybinds::hotkey_identifiers::LAYOUT_NEXT => {
+            keybinds::hotkey_identifiers::LAYOUT_NEXT => {
                 wm.cycle_layout(CycleDirection::Next);
             }
-            crate::keybinds::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
+            keybinds::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
                 wm.cycle_focused_monitor(CycleDirection::Previous);
             }
-            crate::keybinds::hotkey_identifiers::FOCUS_NEXT_MONITOR => {
+            keybinds::hotkey_identifiers::FOCUS_NEXT_MONITOR => {
                 wm.cycle_focused_monitor(CycleDirection::Next);
             }
-            crate::keybinds::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
+            keybinds::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
                 wm.cycle_assigned_monitor(CycleDirection::Previous);
             }
-            crate::keybinds::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => {
+            keybinds::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => {
                 wm.cycle_assigned_monitor(CycleDirection::Next);
             }
-            crate::keybinds::hotkey_identifiers::GRAB_WINDOW => {
+            keybinds::hotkey_identifiers::GRAB_WINDOW => {
                 wm.grab_window();
             }
-            crate::keybinds::hotkey_identifiers::RELEASE_WINDOW => {
+            keybinds::hotkey_identifiers::RELEASE_WINDOW => {
                 wm.release_window();
             }
-            crate::keybinds::hotkey_identifiers::TOGGLE_WINDOW => {
+            keybinds::hotkey_identifiers::TOGGLE_WINDOW => {
                 wm.toggle_window();
             }
-            crate::keybinds::hotkey_identifiers::TOGGLE_WORKSPACE => {
+            keybinds::hotkey_identifiers::TOGGLE_WORKSPACE => {
                 wm.toggle_workspace();
             }
             _ => (),

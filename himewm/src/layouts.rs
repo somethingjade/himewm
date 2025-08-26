@@ -1,29 +1,5 @@
-use directories::BaseDirs;
+use crate::directories::*;
 use himewm_layout::*;
-
-pub struct Directories {
-    pub config_dir: std::path::PathBuf,
-    pub layouts_dir: std::path::PathBuf,
-}
-
-impl Directories {
-    pub fn new() -> Self {
-        let base_dirs = BaseDirs::new().unwrap();
-        let config_dir = base_dirs.config_dir().join("himewm");
-        let layouts_dir = config_dir.join("layouts");
-        return Self {
-            config_dir,
-            layouts_dir,
-        };
-    }
-}
-
-pub fn create_dirs() -> std::io::Result<()> {
-    let dirs = Directories::new();
-    let _config_dir = std::fs::create_dir(dirs.config_dir)?;
-    let _layouts_dir = std::fs::create_dir(dirs.layouts_dir)?;
-    return Ok(());
-}
 
 pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
     let mut ret = Vec::new();
@@ -49,4 +25,14 @@ pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
     } else {
         return Some(ret);
     }
+}
+
+pub fn get_layout_idx_map(
+    layout_vector: &Vec<(std::path::PathBuf, Layout)>,
+) -> std::collections::HashMap<String, usize> {
+    let mut ret = std::collections::HashMap::new();
+    for (i, (layout_name, _)) in layout_vector.iter().enumerate() {
+        ret.insert(layout_name.to_str().unwrap().to_owned(), i);
+    }
+    return ret;
 }

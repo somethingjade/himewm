@@ -7,21 +7,28 @@ use windows::Win32::{
 
 fn main() {
     // Maybe error handle this
-    let _create_dirs = init::create_dirs();
+    let _create_dirs = directories::create_dirs();
     let user_settings = user_settings::initialize_settings();
+    let user_window_rules = window_rules::initialize_window_rules();
     let mut msg = MSG::default();
     unsafe {
-        let layouts = match init::initialize_layouts() {
+        let layouts = match layouts::initialize_layouts() {
             Some(val) => val,
             None => {
                 util::show_error_message("No layouts found");
                 return;
             }
         };
+        let layout_idx_map = layouts::get_layout_idx_map(&layouts);
+        let internal_window_rules =
+            window_rules::get_internal_window_rules(&user_window_rules, &layout_idx_map);
         keybinds::register_hotkeys();
         let _create_tray_icon = tray_menu::create();
         tray_menu::set_menu_event_handler();
-        let mut wm = wm::WindowManager::new(user_settings.to_settings(&layouts));
+        let mut wm = wm::WindowManager::new(
+            user_settings.to_settings(&layout_idx_map),
+            internal_window_rules,
+        );
         wm.initialize(layouts.into_iter().map(|(_, layout)| layout).collect());
         while GetMessageA(&mut msg, None, 0, 0).as_bool() {
             wm::handle_message(msg, &mut wm);

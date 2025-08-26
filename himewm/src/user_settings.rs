@@ -1,4 +1,4 @@
-use crate::init::*;
+use crate::directories::*;
 use serde::{Deserialize, Serialize};
 use windows::Win32::{Foundation::COLORREF, Graphics::Dwm::DWMWA_COLOR_DEFAULT};
 
@@ -88,15 +88,14 @@ impl Default for UserSettings {
 impl UserSettings {
     pub fn to_settings(
         &self,
-        layouts: &Vec<(std::path::PathBuf, himewm_layout::Layout)>,
+        layout_idx_map: &std::collections::HashMap<String, usize>,
     ) -> crate::wm::Settings {
         let mut idx = 0;
         if self.layout_settings.default_layout != std::path::Path::new("") {
-            for (i, (p, _)) in layouts.iter().enumerate() {
-                if p == &self.layout_settings.default_layout {
-                    idx = i;
-                    break;
-                }
+            if let Some(i) =
+                layout_idx_map.get(self.layout_settings.default_layout.to_str().unwrap())
+            {
+                idx = *i;
             }
         }
         return crate::wm::Settings {
@@ -153,7 +152,8 @@ fn parse_unfocused_border_colour(s: &str) -> COLORREF {
 
 pub fn initialize_settings() -> UserSettings {
     let dirs = Directories::new();
-    match std::fs::read(dirs.config_dir.join("settings.json")) {
+    let settings_path = dirs.config_dir.join("settings.json");
+    match std::fs::read(&settings_path) {
         Ok(byte_vector) => match serde_json::from_slice::<UserSettings>(byte_vector.as_slice()) {
             Ok(settings) => {
                 return settings;
@@ -163,10 +163,9 @@ pub fn initialize_settings() -> UserSettings {
             }
         },
         Err(_) => {
-            let settings_file =
-                std::fs::File::create_new(dirs.config_dir.join("settings.json")).unwrap();
+            let settings_file = std::fs::File::create_new(settings_path).unwrap();
             let default_user_settings = UserSettings::default();
-            let _ = serde_json::to_writer_pretty(settings_file, &default_user_settings);
+            let _ = serde_json::to_writer_pretty(&settings_file, &default_user_settings);
             return default_user_settings;
         }
     }
