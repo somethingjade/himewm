@@ -1395,6 +1395,7 @@ impl WindowManager {
         match self.workspaces.get_mut(&(guid, hmonitor.0)) {
             Some(workspace) => {
                 workspace.window_handles.insert(hwnd.0);
+                window_info.idx = workspace.managed_window_handles.len();
             }
             None => {
                 self.workspaces.insert(
@@ -1407,6 +1408,7 @@ impl WindowManager {
                             .default_variant_idx(),
                     ),
                 );
+                window_info.idx = 0;
             }
         }
     }
