@@ -273,35 +273,7 @@ impl WindowManager {
                 if monitor_handle.is_invalid() {
                     return;
                 }
-                self.window_info.insert(
-                    hwnd.0,
-                    WindowInfo::new(desktop_id, monitor_handle, is_restored(hwnd), 0),
-                );
-                match self.get_window_rule(hwnd) {
-                    Some(rule) => match rule {
-                        window_rules::InternalRule::LayoutIdx(idx) => {
-                            self.push_hwnd(desktop_id, monitor_handle, hwnd);
-                            if let Some(workspace) =
-                                self.workspaces.get_mut(&(desktop_id, monitor_handle.0))
-                            {
-                                workspace.layout_idx = idx;
-                            }
-                        }
-                        window_rules::InternalRule::StartFloating(set_position) => {
-                            self.add_hwnd_to_workspace(desktop_id, monitor_handle, hwnd);
-                            self.ignored_windows.insert(hwnd.0);
-                            match set_position {
-                                window_rules::SetPosition::Default => (),
-                                window_rules::SetPosition::Center => self.center_window(hwnd),
-                                window_rules::SetPosition::Position { x, y, w, h } => {
-                                    let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
-                                }
-                            }
-                        }
-                    },
-                    None => self.push_hwnd(desktop_id, monitor_handle, hwnd),
-                }
-                self.initialize_border(hwnd);
+                self.manage_new_window(desktop_id, monitor_handle, hwnd);
                 if let None = self.foreground_window {
                     self.foreground_window_changed(hwnd, false);
                 }
@@ -1311,6 +1283,36 @@ impl WindowManager {
         managed_window_handles.swap(i, j);
     }
 
+    unsafe fn manage_new_window(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
+        self.window_info.insert(
+            hwnd.0,
+            WindowInfo::new(guid, hmonitor, is_restored(hwnd), 0),
+        );
+        match self.get_window_rule(hwnd) {
+            Some(rule) => match rule {
+                window_rules::InternalRule::LayoutIdx(idx) => {
+                    self.push_hwnd(guid, hmonitor, hwnd);
+                    if let Some(workspace) = self.workspaces.get_mut(&(guid, hmonitor.0)) {
+                        workspace.layout_idx = idx;
+                    }
+                }
+                window_rules::InternalRule::StartFloating(set_position) => {
+                    self.add_hwnd_to_workspace(guid, hmonitor, hwnd);
+                    self.ignored_windows.insert(hwnd.0);
+                    match set_position {
+                        window_rules::SetPosition::Default => (),
+                        window_rules::SetPosition::Center => self.center_window(hwnd),
+                        window_rules::SetPosition::Position { x, y, w, h } => {
+                            let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+                        }
+                    }
+                }
+            },
+            None => self.push_hwnd(guid, hmonitor, hwnd),
+        }
+        self.initialize_border(hwnd);
+    }
+
     unsafe fn move_windows_across_monitors(
         &mut self,
         guid: GUID,
@@ -1634,34 +1636,7 @@ impl WindowManager {
         {
             return true.into();
         }
-        wm.window_info.insert(
-            hwnd.0,
-            WindowInfo::new(desktop_id, monitor_handle, is_restored(hwnd), 0),
-        );
-        match wm.get_window_rule(hwnd) {
-            Some(rule) => match rule {
-                window_rules::InternalRule::LayoutIdx(idx) => {
-                    wm.push_hwnd(desktop_id, monitor_handle, hwnd);
-                    if let Some(workspace) = wm.workspaces.get_mut(&(desktop_id, monitor_handle.0))
-                    {
-                        workspace.layout_idx = idx;
-                    }
-                }
-                window_rules::InternalRule::StartFloating(set_position) => {
-                    wm.add_hwnd_to_workspace(desktop_id, monitor_handle, hwnd);
-                    wm.ignored_windows.insert(hwnd.0);
-                    match set_position {
-                        window_rules::SetPosition::Default => (),
-                        window_rules::SetPosition::Center => wm.center_window(hwnd),
-                        window_rules::SetPosition::Position { x, y, w, h } => {
-                            let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
-                        }
-                    }
-                }
-            },
-            None => wm.push_hwnd(desktop_id, monitor_handle, hwnd),
-        }
-        wm.initialize_border(hwnd);
+        wm.manage_new_window(desktop_id, monitor_handle, hwnd);
         return true.into();
     }
 
