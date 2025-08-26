@@ -277,7 +277,7 @@ impl WindowManager {
                     hwnd.0,
                     WindowInfo::new(desktop_id, monitor_handle, is_restored(hwnd), 0),
                 );
-                match self.handle_window_rule(hwnd) {
+                match self.get_window_rule(hwnd) {
                     Some(rule) => match rule {
                         window_rules::InternalRule::LayoutIdx(idx) => {
                             self.push_hwnd(desktop_id, monitor_handle, hwnd);
@@ -287,8 +287,16 @@ impl WindowManager {
                                 workspace.layout_idx = idx;
                             }
                         }
-                        window_rules::InternalRule::StartFloating(_) => {
+                        window_rules::InternalRule::StartFloating(set_position) => {
                             self.add_hwnd_to_workspace(desktop_id, monitor_handle, hwnd);
+                            self.ignored_windows.insert(hwnd.0);
+                            match set_position {
+                                window_rules::SetPosition::Default => (),
+                                window_rules::SetPosition::Center => self.center_window(hwnd),
+                                window_rules::SetPosition::Position { x, y, w, h } => {
+                                    let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+                                }
+                            }
                         }
                     },
                     None => self.push_hwnd(desktop_id, monitor_handle, hwnd),
@@ -1494,25 +1502,11 @@ impl WindowManager {
         return Some(hwnd);
     }
 
-    unsafe fn handle_window_rule(&mut self, hwnd: HWND) -> Option<window_rules::InternalRule> {
+    unsafe fn get_window_rule(&mut self, hwnd: HWND) -> Option<window_rules::InternalRule> {
         match util::get_window_title(hwnd) {
             Ok(title) => {
                 for window_rule in &self.window_rules.title_window_rules {
                     if window_rule.regex.is_match(&title) {
-                        match &window_rule.rule {
-                            window_rules::InternalRule::LayoutIdx(_) => (),
-                            window_rules::InternalRule::StartFloating(set_position) => {
-                                self.ignored_windows.insert(hwnd.0);
-                                match set_position {
-                                    window_rules::SetPosition::Default => (),
-                                    window_rules::SetPosition::Center => self.center_window(hwnd),
-                                    window_rules::SetPosition::Position { x, y, w, h } => {
-                                        let _ =
-                                            SetWindowPos(hwnd, None, *x, *y, *w, *h, SWP_NOZORDER);
-                                    }
-                                }
-                            }
-                        }
                         return Some(window_rule.rule.to_owned());
                     }
                 }
@@ -1642,7 +1636,7 @@ impl WindowManager {
             hwnd.0,
             WindowInfo::new(desktop_id, monitor_handle, is_restored(hwnd), 0),
         );
-        match wm.handle_window_rule(hwnd) {
+        match wm.get_window_rule(hwnd) {
             Some(rule) => match rule {
                 window_rules::InternalRule::LayoutIdx(idx) => {
                     wm.push_hwnd(desktop_id, monitor_handle, hwnd);
@@ -1651,8 +1645,16 @@ impl WindowManager {
                         workspace.layout_idx = idx;
                     }
                 }
-                window_rules::InternalRule::StartFloating(_) => {
+                window_rules::InternalRule::StartFloating(set_position) => {
                     wm.add_hwnd_to_workspace(desktop_id, monitor_handle, hwnd);
+                    wm.ignored_windows.insert(hwnd.0);
+                    match set_position {
+                        window_rules::SetPosition::Default => (),
+                        window_rules::SetPosition::Center => wm.center_window(hwnd),
+                        window_rules::SetPosition::Position { x, y, w, h } => {
+                            let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+                        }
+                    }
                 }
             },
             None => wm.push_hwnd(desktop_id, monitor_handle, hwnd),
