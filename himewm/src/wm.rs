@@ -136,6 +136,7 @@ pub struct WindowManager {
     workspaces: std::collections::HashMap<(GUID, *mut core::ffi::c_void), Workspace>,
     layouts: std::collections::HashMap<*mut core::ffi::c_void, Vec<Layout>>,
     foreground_window: Option<HWND>,
+    previous_foreground_window: Option<HWND>,
     grabbed_window: Option<HWND>,
     ignored_combinations: std::collections::HashSet<(GUID, *mut core::ffi::c_void)>,
     ignored_windows: std::collections::HashSet<*mut core::ffi::c_void>,
@@ -168,6 +169,7 @@ impl WindowManager {
             workspaces: std::collections::HashMap::new(),
             layouts: std::collections::HashMap::new(),
             foreground_window: None,
+            previous_foreground_window: None,
             grabbed_window: None,
             ignored_combinations: std::collections::HashSet::new(),
             ignored_windows: std::collections::HashSet::new(),
@@ -302,6 +304,9 @@ impl WindowManager {
         if self.foreground_window == Some(hwnd) {
             self.foreground_window = None;
         }
+        if self.previous_foreground_window == Some(hwnd) {
+            self.previous_foreground_window = None;
+        }
         if self.grabbed_window == Some(hwnd) {
             self.grabbed_window = None;
         }
@@ -325,6 +330,9 @@ impl WindowManager {
         window_info.restored = false;
         if self.foreground_window == Some(hwnd) {
             self.foreground_window = None;
+        }
+        if self.previous_foreground_window == Some(hwnd) {
+            self.previous_foreground_window = None;
         }
         if self.grabbed_window == Some(hwnd) && !self.ignored_windows.contains(&hwnd.0) {
             self.grabbed_window = None;
@@ -474,7 +482,8 @@ impl WindowManager {
     unsafe fn foreground_window_changed(&mut self, hwnd: HWND, updating: bool) {
         if !self.window_info.contains_key(&hwnd.0) {
             if let Some(previous_foreground_window) = self.foreground_window {
-                self.set_border_to_unfocused(previous_foreground_window);
+                self.previous_foreground_window = Some(previous_foreground_window);
+                self.unfocus_border_with_combination_check(previous_foreground_window);
             }
             self.foreground_window = None;
             return;
@@ -485,23 +494,31 @@ impl WindowManager {
             monitor_handle,
             ..
         } = window_info.to_owned();
-        self.set_border_to_focused(hwnd);
+        let ignored_combination = self
+            .ignored_combinations
+            .contains(&(desktop_id, monitor_handle.0));
+        if !ignored_combination {
+            self.set_border_to_focused(hwnd);
+        }
         match self.foreground_window {
-            Some(previous_foreground_window) if previous_foreground_window == hwnd => {
+            Some(prev) if prev == hwnd => {
+                if let Some(previous_foreground_window) = self.previous_foreground_window {
+                    self.unfocus_border_with_combination_check(previous_foreground_window);
+                }
                 if !updating {
                     return;
                 }
             }
             Some(previous_foreground_window) => {
-                self.set_border_to_unfocused(previous_foreground_window);
+                self.previous_foreground_window = Some(previous_foreground_window);
+                self.unfocus_border_with_combination_check(previous_foreground_window);
             }
-            None => (),
+            None => {
+                self.previous_foreground_window = None;
+            }
         }
         self.foreground_window = Some(hwnd);
-        if self
-            .ignored_combinations
-            .contains(&(desktop_id, monitor_handle.0))
-        {
+        if ignored_combination {
             return;
         }
         if !self.ignored_windows.contains(&hwnd.0) && is_restored(hwnd) {
@@ -1187,12 +1204,23 @@ impl WindowManager {
             Some(val) => val,
             None => return,
         };
+        let workspace = match self.workspaces.get(&(*desktop_id, monitor_handle.0)) {
+            Some(w) => w,
+            None => return,
+        };
         if self
             .ignored_combinations
             .remove(&(*desktop_id, monitor_handle.0))
         {
+            for h in &workspace.window_handles {
+                self.initialize_border(HWND(*h));
+            }
+            self.set_border_to_focused(foreground_window);
             self.update_workspace(*desktop_id, *monitor_handle);
         } else {
+            for h in &workspace.window_handles {
+                Self::reset_border(HWND(*h));
+            }
             self.ignored_combinations
                 .insert((*desktop_id, monitor_handle.0));
         }
@@ -1364,6 +1392,35 @@ impl WindowManager {
             std::mem::size_of_val(&corner_preference) as u32,
         );
         self.set_border_to_unfocused(hwnd);
+    }
+
+    unsafe fn reset_border(hwnd: HWND) {
+        let _corner = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            &DWMWCP_DEFAULT as *const DWM_WINDOW_CORNER_PREFERENCE as *const core::ffi::c_void,
+            std::mem::size_of_val(&DWMWCP_DEFAULT) as u32,
+        );
+        let _border_colour = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_BORDER_COLOR,
+            &COLORREF(DWMWA_COLOR_DEFAULT) as *const COLORREF as *const core::ffi::c_void,
+            std::mem::size_of_val(&COLORREF(DWMWA_COLOR_DEFAULT)) as u32,
+        );
+    }
+
+    unsafe fn unfocus_border_with_combination_check(&self, hwnd: HWND) {
+        let WindowInfo {
+            desktop_id,
+            monitor_handle,
+            ..
+        } = self.window_info.get(&hwnd.0).unwrap();
+        if !self
+            .ignored_combinations
+            .contains(&(*desktop_id, monitor_handle.0))
+        {
+            self.set_border_to_unfocused(hwnd);
+        }
     }
 
     unsafe fn center_window(&self, hwnd: HWND) {
