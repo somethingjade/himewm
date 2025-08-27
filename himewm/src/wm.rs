@@ -1288,7 +1288,11 @@ impl WindowManager {
             hwnd.0,
             WindowInfo::new(guid, hmonitor, is_restored(hwnd), 0),
         );
-        match self.get_window_rule(hwnd) {
+        let filter = Some(std::collections::HashSet::from([
+            window_rules::FilterRule::Layout,
+            window_rules::FilterRule::StartFloating,
+        ]));
+        match self.get_window_rule(hwnd, &filter) {
             Some(rule) => match rule {
                 window_rules::InternalRule::LayoutIdx(idx) => {
                     self.push_hwnd(guid, hmonitor, hwnd);
@@ -1506,12 +1510,42 @@ impl WindowManager {
         return Some(hwnd);
     }
 
-    unsafe fn get_window_rule(&mut self, hwnd: HWND) -> Option<window_rules::InternalRule> {
+    unsafe fn get_window_rule(
+        &mut self,
+        hwnd: HWND,
+        filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
+    ) -> Option<window_rules::InternalRule> {
         match util::get_window_title(hwnd) {
             Ok(title) => {
                 for window_rule in &self.window_rules.title_window_rules {
                     if window_rule.regex.is_match(&title) {
-                        return Some(window_rule.rule.to_owned());
+                        match &filter {
+                            Some(f) => {
+                                let filter_for = window_rules::FilterRule::from(&window_rule.rule);
+                                if f.contains(&filter_for) {
+                                    return Some(window_rule.rule.to_owned());
+                                }
+                            }
+                            None => return Some(window_rule.rule.to_owned()),
+                        }
+                    }
+                }
+            }
+            Err(_) => (),
+        }
+        match util::get_exe_name(hwnd) {
+            Ok(title) => {
+                for window_rule in &self.window_rules.process_window_rules {
+                    if window_rule.regex.is_match(&title) {
+                        match &filter {
+                            Some(f) => {
+                                let filter_for = window_rules::FilterRule::from(&window_rule.rule);
+                                if f.contains(&filter_for) {
+                                    return Some(window_rule.rule.to_owned());
+                                }
+                            }
+                            None => return Some(window_rule.rule.to_owned()),
+                        }
                     }
                 }
                 return None;

@@ -27,6 +27,21 @@ pub enum InternalRule {
     StartFloating(SetPosition),
 }
 
+#[derive(PartialEq, Eq, Hash)]
+pub enum FilterRule {
+    Layout,
+    StartFloating,
+}
+
+impl From<&InternalRule> for FilterRule {
+    fn from(value: &InternalRule) -> Self {
+        match value {
+            InternalRule::LayoutIdx(_) => return Self::Layout,
+            InternalRule::StartFloating(_) => return Self::StartFloating,
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct WindowRule {
     match_type: MatchType,
