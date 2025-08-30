@@ -27,14 +27,16 @@ pub fn register_hotkeys() {
         MOD_ALT,
         0x4A,
     );
-    let _focus_next = windows_api::register_hot_key(None, hotkey_identifiers::FOCUS_NEXT as i32, MOD_ALT, 0x4B);
+    let _focus_next =
+        windows_api::register_hot_key(None, hotkey_identifiers::FOCUS_NEXT as i32, MOD_ALT, 0x4B);
     let _swap_previous = windows_api::register_hot_key(
         None,
         hotkey_identifiers::SWAP_PREVIOUS as i32,
         MOD_ALT,
         0x48,
     );
-    let _swap_next = windows_api::register_hot_key(None, hotkey_identifiers::SWAP_NEXT as i32, MOD_ALT, 0x4C);
+    let _swap_next =
+        windows_api::register_hot_key(None, hotkey_identifiers::SWAP_NEXT as i32, MOD_ALT, 0x4C);
     let _variant_previous = windows_api::register_hot_key(
         None,
         hotkey_identifiers::VARIANT_PREVIOUS as i32,

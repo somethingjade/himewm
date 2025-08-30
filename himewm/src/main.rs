@@ -27,7 +27,7 @@ fn main() {
     );
     wm.initialize(layouts.into_iter().map(|(_, layout)| layout).collect());
     while windows_api::get_message(&mut msg, None, 0, 0).as_bool() {
-        wm::handle_message(msg, &mut wm);
+        wm_message_handler::handle_message(msg, &mut wm);
         let _translate_message = windows_api::translate_message(&msg);
         windows_api::dispatch_message(&msg);
     }

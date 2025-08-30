@@ -2,21 +2,11 @@ use windows::{
     core::*,
     Win32::{
         Foundation::*,
-        Graphics::{
-            Dwm::*,
-            Gdi::*
-        },
-        System::{
-            Com::*,
-            Console::*,
-            Threading::*
-        },
+        Graphics::{Dwm::*, Gdi::*},
+        System::{Com::*, Console::*, Threading::*},
         UI::{
-            Accessibility::*, 
-            HiDpi::*, 
-            Input::KeyboardAndMouse::*,
-            Shell::*, 
-            WindowsAndMessaging::*
+            Accessibility::*, HiDpi::*, Input::KeyboardAndMouse::*, Shell::*,
+            WindowsAndMessaging::*,
         },
     },
 };
@@ -26,22 +16,48 @@ pub fn co_initialize_ex(pvreserved: Option<*const core::ffi::c_void>, dwcoinit: 
         return CoInitializeEx(pvreserved, dwcoinit);
     }
 }
-pub fn set_win_event_hook(eventmin: u32, eventmax: u32, hmodwineventproc: Option<HMODULE>, pfnwineventproc: WINEVENTPROC, idprocess: u32, idthread: u32, dwflags: u32) -> HWINEVENTHOOK {
+pub fn set_win_event_hook(
+    eventmin: u32,
+    eventmax: u32,
+    hmodwineventproc: Option<HMODULE>,
+    pfnwineventproc: WINEVENTPROC,
+    idprocess: u32,
+    idthread: u32,
+    dwflags: u32,
+) -> HWINEVENTHOOK {
     unsafe {
-        return SetWinEventHook(eventmin, eventmax, hmodwineventproc, pfnwineventproc, idprocess, idthread, dwflags);
+        return SetWinEventHook(
+            eventmin,
+            eventmax,
+            hmodwineventproc,
+            pfnwineventproc,
+            idprocess,
+            idthread,
+            dwflags,
+        );
     }
 }
 
-pub fn co_create_instance<P1, T>(rclsid: *const GUID, punkouter: P1, dwclscontext: CLSCTX) -> Result<T>
+pub fn co_create_instance<P1, T>(
+    rclsid: *const GUID,
+    punkouter: P1,
+    dwclscontext: CLSCTX,
+) -> Result<T>
 where
     P1: Param<IUnknown>,
-    T: Interface {
+    T: Interface,
+{
     unsafe {
         return CoCreateInstance(rclsid, punkouter, dwclscontext);
     }
 }
 
-pub fn enum_display_monitors(hdc: Option<HDC>, lprcclip: Option<*const RECT>, lpfnenum: MONITORENUMPROC, dwdata: LPARAM) -> BOOL {
+pub fn enum_display_monitors(
+    hdc: Option<HDC>,
+    lprcclip: Option<*const RECT>,
+    lpfnenum: MONITORENUMPROC,
+    dwdata: LPARAM,
+) -> BOOL {
     unsafe {
         return EnumDisplayMonitors(hdc, lprcclip, lpfnenum, dwdata);
     }
@@ -58,13 +74,15 @@ pub fn get_foreground_window() -> HWND {
         return GetForegroundWindow();
     }
 }
-                    // match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
+// match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
 
-pub fn get_window_desktop_id(i_virtual_desktop_manager: &IVirtualDesktopManager, toplevelwindow: HWND) -> Result<GUID> {
+pub fn get_window_desktop_id(
+    i_virtual_desktop_manager: &IVirtualDesktopManager,
+    toplevelwindow: HWND,
+) -> Result<GUID> {
     unsafe {
         return i_virtual_desktop_manager.GetWindowDesktopId(toplevelwindow);
     }
-
 }
 
 pub fn monitor_from_window(hwnd: HWND, dwflags: MONITOR_FROM_FLAGS) -> HMONITOR {
@@ -97,7 +115,15 @@ pub fn get_dpi_for_window(hwnd: HWND) -> u32 {
     }
 }
 
-pub fn set_window_pos(hwnd: HWND, hwndinsertafter: Option<HWND>, x: i32, y: i32, cx: i32, cy: i32, uflags: SET_WINDOW_POS_FLAGS) -> Result<()> {
+pub fn set_window_pos(
+    hwnd: HWND,
+    hwndinsertafter: Option<HWND>,
+    x: i32,
+    y: i32,
+    cx: i32,
+    cy: i32,
+    uflags: SET_WINDOW_POS_FLAGS,
+) -> Result<()> {
     unsafe {
         return SetWindowPos(hwnd, hwndinsertafter, x, y, cx, cy, uflags);
     }
@@ -109,7 +135,12 @@ pub fn get_last_error() -> WIN32_ERROR {
     }
 }
 
-pub fn dwm_set_window_attribute(hwnd: HWND, dwattribute: DWMWINDOWATTRIBUTE, pvattribute: *const core::ffi::c_void, cbattribute: u32) -> Result<()> {
+pub fn dwm_set_window_attribute(
+    hwnd: HWND,
+    dwattribute: DWMWINDOWATTRIBUTE,
+    pvattribute: *const core::ffi::c_void,
+    cbattribute: u32,
+) -> Result<()> {
     unsafe {
         return DwmSetWindowAttribute(hwnd, dwattribute, pvattribute, cbattribute);
     }
@@ -157,7 +188,12 @@ pub fn get_monitor_info(hmonitor: HMONITOR, lpmi: *mut MONITORINFO) -> BOOL {
     }
 }
 
-pub fn register_hot_key(hwnd: Option<HWND>, id: i32, fsmodifiers: HOT_KEY_MODIFIERS, vk: u32) -> Result<()> {
+pub fn register_hot_key(
+    hwnd: Option<HWND>,
+    id: i32,
+    fsmodifiers: HOT_KEY_MODIFIERS,
+    vk: u32,
+) -> Result<()> {
     unsafe {
         return RegisterHotKey(hwnd, id, fsmodifiers, vk);
     }
@@ -211,13 +247,22 @@ pub fn get_window_thread_process_id(hwnd: HWND, lpdwprocessid: Option<*mut u32>)
     }
 }
 
-pub fn open_process(dwdesiredaccess: PROCESS_ACCESS_RIGHTS, binherithandle: bool, dwprocessid: u32) -> Result<HANDLE> {
+pub fn open_process(
+    dwdesiredaccess: PROCESS_ACCESS_RIGHTS,
+    binherithandle: bool,
+    dwprocessid: u32,
+) -> Result<HANDLE> {
     unsafe {
         return OpenProcess(dwdesiredaccess, binherithandle, dwprocessid);
     }
 }
 
-pub fn query_full_process_image_name(hprocess: HANDLE, dwflags: PROCESS_NAME_FORMAT, lpexename: PSTR, lpdwsize: *mut u32) -> Result<()> {
+pub fn query_full_process_image_name(
+    hprocess: HANDLE,
+    dwflags: PROCESS_NAME_FORMAT,
+    lpexename: PSTR,
+    lpdwsize: *mut u32,
+) -> Result<()> {
     unsafe {
         return QueryFullProcessImageNameA(hprocess, dwflags, lpexename, lpdwsize);
     }
@@ -235,7 +280,12 @@ pub fn post_quit_message(nexitcode: i32) {
     }
 }
 
-pub fn get_message(lpmsg: *mut MSG, hwnd: Option<HWND>, wmsgfiltermin: u32, wmsgfiltermax: u32) -> BOOL {
+pub fn get_message(
+    lpmsg: *mut MSG,
+    hwnd: Option<HWND>,
+    wmsgfiltermin: u32,
+    wmsgfiltermax: u32,
+) -> BOOL {
     unsafe {
         return GetMessageA(lpmsg, hwnd, wmsgfiltermin, wmsgfiltermax);
     }

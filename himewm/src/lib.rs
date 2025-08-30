@@ -7,3 +7,7 @@ pub mod util;
 pub mod window_rules;
 pub mod windows_api;
 pub mod wm;
+pub mod wm_cb;
+pub mod wm_message_handler;
+pub mod wm_messages;
+pub mod wm_util;
