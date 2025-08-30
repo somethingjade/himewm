@@ -1,3 +1,4 @@
+use crate::windows_api;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
 pub mod hotkey_identifiers {
@@ -19,88 +20,88 @@ pub mod hotkey_identifiers {
     pub const TOGGLE_WORKSPACE: usize = 15;
 }
 
-pub unsafe fn register_hotkeys() {
-    let _focus_previous = RegisterHotKey(
+pub fn register_hotkeys() {
+    let _focus_previous = windows_api::register_hot_key(
         None,
         hotkey_identifiers::FOCUS_PREVIOUS as i32,
         MOD_ALT,
         0x4A,
     );
-    let _focus_next = RegisterHotKey(None, hotkey_identifiers::FOCUS_NEXT as i32, MOD_ALT, 0x4B);
-    let _swap_previous = RegisterHotKey(
+    let _focus_next = windows_api::register_hot_key(None, hotkey_identifiers::FOCUS_NEXT as i32, MOD_ALT, 0x4B);
+    let _swap_previous = windows_api::register_hot_key(
         None,
         hotkey_identifiers::SWAP_PREVIOUS as i32,
         MOD_ALT,
         0x48,
     );
-    let _swap_next = RegisterHotKey(None, hotkey_identifiers::SWAP_NEXT as i32, MOD_ALT, 0x4C);
-    let _variant_previous = RegisterHotKey(
+    let _swap_next = windows_api::register_hot_key(None, hotkey_identifiers::SWAP_NEXT as i32, MOD_ALT, 0x4C);
+    let _variant_previous = windows_api::register_hot_key(
         None,
         hotkey_identifiers::VARIANT_PREVIOUS as i32,
         MOD_ALT | MOD_SHIFT,
         0x4A,
     );
-    let _variant_next = RegisterHotKey(
+    let _variant_next = windows_api::register_hot_key(
         None,
         hotkey_identifiers::VARIANT_NEXT as i32,
         MOD_ALT | MOD_SHIFT,
         0x4B,
     );
-    let _layout_previous = RegisterHotKey(
+    let _layout_previous = windows_api::register_hot_key(
         None,
         hotkey_identifiers::LAYOUT_PREVIOUS as i32,
         MOD_ALT | MOD_SHIFT,
         0x48,
     );
-    let _layout_next = RegisterHotKey(
+    let _layout_next = windows_api::register_hot_key(
         None,
         hotkey_identifiers::LAYOUT_NEXT as i32,
         MOD_ALT | MOD_SHIFT,
         0x4C,
     );
-    let _focus_previous_monitor = RegisterHotKey(
+    let _focus_previous_monitor = windows_api::register_hot_key(
         None,
         hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32,
         MOD_ALT,
         0x55,
     );
-    let _focus_next_monitor = RegisterHotKey(
+    let _focus_next_monitor = windows_api::register_hot_key(
         None,
         hotkey_identifiers::FOCUS_NEXT_MONITOR as i32,
         MOD_ALT,
         0x49,
     );
-    let _move_to_previous_monitor = RegisterHotKey(
+    let _move_to_previous_monitor = windows_api::register_hot_key(
         None,
         hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR as i32,
         MOD_ALT,
         0x59,
     );
-    let _move_to_next_monitor = RegisterHotKey(
+    let _move_to_next_monitor = windows_api::register_hot_key(
         None,
         hotkey_identifiers::MOVE_TO_NEXT_MONITOR as i32,
         MOD_ALT,
         0x4F,
     );
-    let _grab_window = RegisterHotKey(
+    let _grab_window = windows_api::register_hot_key(
         None,
         hotkey_identifiers::GRAB_WINDOW as i32,
         MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,
         0x55,
     );
-    let _release_window = RegisterHotKey(
+    let _release_window = windows_api::register_hot_key(
         None,
         hotkey_identifiers::RELEASE_WINDOW as i32,
         MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,
         0x49,
     );
-    let _toggle_window = RegisterHotKey(
+    let _toggle_window = windows_api::register_hot_key(
         None,
         hotkey_identifiers::TOGGLE_WINDOW as i32,
         MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,
         0x59,
     );
-    let _toggle_workspace = RegisterHotKey(
+    let _toggle_workspace = windows_api::register_hot_key(
         None,
         hotkey_identifiers::TOGGLE_WORKSPACE as i32,
         MOD_ALT | MOD_SHIFT | MOD_NOREPEAT,

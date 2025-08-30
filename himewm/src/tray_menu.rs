@@ -1,8 +1,8 @@
+use crate::windows_api;
 use tray_icon::{
     menu::{Menu, MenuEvent, MenuId, MenuItemBuilder},
     TrayIcon, TrayIconBuilder,
 };
-use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
 
 mod menu_ids {
     pub const QUIT: &str = "quit";
@@ -22,10 +22,10 @@ pub fn create() -> tray_icon::Result<TrayIcon> {
         .build();
 }
 
-pub unsafe fn set_menu_event_handler() {
+pub fn set_menu_event_handler() {
     MenuEvent::set_event_handler(Some(|event: MenuEvent| match event.id().as_ref() {
         menu_ids::QUIT => {
-            PostQuitMessage(0);
+            windows_api::post_quit_message(0);
         }
         _ => return,
     }));

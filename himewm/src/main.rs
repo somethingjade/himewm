@@ -1,9 +1,6 @@
 #![windows_subsystem = "windows"]
 use himewm::*;
-use windows::Win32::{
-    System::Com::*,
-    UI::{Accessibility::*, WindowsAndMessaging::*},
-};
+use windows::Win32::UI::WindowsAndMessaging::*;
 
 fn main() {
     // Maybe error handle this
@@ -11,31 +8,29 @@ fn main() {
     let user_settings = user_settings::initialize_settings();
     let user_window_rules = window_rules::initialize_window_rules();
     let mut msg = MSG::default();
-    unsafe {
-        let layouts = match layouts::initialize_layouts() {
-            Some(val) => val,
-            None => {
-                util::show_error_message("No layouts found");
-                return;
-            }
-        };
-        let layout_idx_map = layouts::get_layout_idx_map(&layouts);
-        let internal_window_rules =
-            window_rules::get_internal_window_rules(&user_window_rules, &layout_idx_map);
-        keybinds::register_hotkeys();
-        let _create_tray_icon = tray_menu::create();
-        tray_menu::set_menu_event_handler();
-        let mut wm = wm::WindowManager::new(
-            user_settings.to_settings(&layout_idx_map),
-            internal_window_rules,
-        );
-        wm.initialize(layouts.into_iter().map(|(_, layout)| layout).collect());
-        while GetMessageA(&mut msg, None, 0, 0).as_bool() {
-            wm::handle_message(msg, &mut wm);
-            let _translate_message = TranslateMessage(&msg);
-            DispatchMessageA(&msg);
+    let layouts = match layouts::initialize_layouts() {
+        Some(val) => val,
+        None => {
+            util::show_error_message("No layouts found");
+            return;
         }
-        let _unhook_win_event = UnhookWinEvent(wm.get_event_hook());
-        CoUninitialize();
+    };
+    let layout_idx_map = layouts::get_layout_idx_map(&layouts);
+    let internal_window_rules =
+        window_rules::get_internal_window_rules(&user_window_rules, &layout_idx_map);
+    keybinds::register_hotkeys();
+    let _create_tray_icon = tray_menu::create();
+    tray_menu::set_menu_event_handler();
+    let mut wm = wm::WindowManager::new(
+        user_settings.to_settings(&layout_idx_map),
+        internal_window_rules,
+    );
+    wm.initialize(layouts.into_iter().map(|(_, layout)| layout).collect());
+    while windows_api::get_message(&mut msg, None, 0, 0).as_bool() {
+        wm::handle_message(msg, &mut wm);
+        let _translate_message = windows_api::translate_message(&msg);
+        windows_api::dispatch_message(&msg);
     }
+    let _unhook_win_event = windows_api::unhook_win_event(wm.get_event_hook());
+    windows_api::co_uninitialize();
 }

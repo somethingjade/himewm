@@ -1,12 +1,24 @@
-use crate::{keybinds, util, window_rules};
+use crate::{
+    keybinds, 
+    util, 
+    window_rules, 
+    windows_api
+};
 use himewm_layout::*;
 use windows::{
     core::*,
     Win32::{
         Foundation::*,
-        Graphics::{Dwm::*, Gdi::*},
+        Graphics::{
+            Dwm::*, 
+            Gdi::*
+        },
         System::Com::*,
-        UI::{Accessibility::*, HiDpi::*, Shell::*, WindowsAndMessaging::*},
+        UI::{
+            Accessibility::*, 
+            Shell::*, 
+            WindowsAndMessaging::*
+        },
     },
 };
 
@@ -146,10 +158,10 @@ pub struct WindowManager {
 }
 
 impl WindowManager {
-    pub unsafe fn new(settings: Settings, window_rules: window_rules::InternalWindowRules) -> Self {
-        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+    pub fn new(settings: Settings, window_rules: window_rules::InternalWindowRules) -> Self {
+        let _ = windows_api::co_initialize_ex(None, COINIT_MULTITHREADED);
         Self {
-            event_hook: SetWinEventHook(
+            event_hook: windows_api::set_win_event_hook(
                 EVENT_MIN,
                 EVENT_MAX,
                 None,
@@ -158,7 +170,7 @@ impl WindowManager {
                 0,
                 WINEVENT_OUTOFCONTEXT,
             ),
-            virtual_desktop_manager: CoCreateInstance(
+            virtual_desktop_manager: windows_api::co_create_instance(
                 &VirtualDesktopManager,
                 None,
                 CLSCTX_INPROC_SERVER,
@@ -179,8 +191,8 @@ impl WindowManager {
         }
     }
 
-    pub unsafe fn initialize(&mut self, layouts: Vec<Layout>) {
-        let _ = EnumDisplayMonitors(
+    pub fn initialize(&mut self, layouts: Vec<Layout>) {
+        let _ = windows_api::enum_display_monitors(
             None,
             None,
             Some(Self::enum_display_monitors_callback),
@@ -201,12 +213,11 @@ impl WindowManager {
                 layouts.push(layout);
             }
         }
-        EnumWindows(
+        let _ = windows_api::enum_windows(
             Some(Self::enum_windows_callback),
             LPARAM(self as *mut WindowManager as isize),
-        )
-        .unwrap();
-        let foreground_window = GetForegroundWindow();
+        );
+        let foreground_window = windows_api::get_foreground_window();
         if self.window_info.contains_key(&foreground_window.0) {
             self.foreground_window = Some(foreground_window);
             self.set_border_to_focused(foreground_window);
@@ -230,7 +241,7 @@ impl WindowManager {
         self.event_hook
     }
 
-    unsafe fn manage_window(&mut self, hwnd: HWND) {
+    fn manage_window(&mut self, hwnd: HWND) {
         let desktop_id;
         let monitor_handle;
         match self.window_info.get_mut(&hwnd.0) {
@@ -258,7 +269,7 @@ impl WindowManager {
                 }
                 let mut count = 0;
                 loop {
-                    match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
+                    match windows_api::get_window_desktop_id(&self.virtual_desktop_manager, hwnd) {
                         Ok(guid) if guid != GUID::zeroed() => {
                             desktop_id = guid;
                             break;
@@ -271,7 +282,7 @@ impl WindowManager {
                         return;
                     }
                 }
-                monitor_handle = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
+                monitor_handle = windows_api::monitor_from_window(hwnd, MONITOR_DEFAULTTONULL);
                 if monitor_handle.is_invalid() {
                     return;
                 }
@@ -285,7 +296,7 @@ impl WindowManager {
         self.update_workspace(desktop_id, monitor_handle);
     }
 
-    unsafe fn window_destroyed(&mut self, hwnd: HWND) {
+    fn window_destroyed(&mut self, hwnd: HWND) {
         let window_info = match self.window_info.get(&hwnd.0) {
             Some(val) => val,
             None => {
@@ -316,7 +327,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn stop_managing_window(&mut self, hwnd: HWND) {
+    fn stop_managing_window(&mut self, hwnd: HWND) {
         let window_info = match self.window_info.get_mut(&hwnd.0) {
             Some(val) if val.restored => val,
             _ => return,
@@ -343,7 +354,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn window_cloaked(&mut self, hwnd: HWND) {
+    fn window_cloaked(&mut self, hwnd: HWND) {
         let window_info = match self.window_info.get(&hwnd.0) {
             Some(val) => val,
             None => return,
@@ -356,7 +367,7 @@ impl WindowManager {
             restored,
             ..
         } = window_info.to_owned();
-        let new_desktop_id = match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
+        let new_desktop_id = match windows_api::get_window_desktop_id(&self.virtual_desktop_manager, hwnd) {
             Ok(guid) if guid != old_desktop_id => guid,
             _ => return,
         };
@@ -378,7 +389,7 @@ impl WindowManager {
         self.update_workspace(new_desktop_id, monitor_handle);
     }
 
-    unsafe fn window_uncloaked(&mut self, hwnd: HWND) {
+    fn window_uncloaked(&mut self, hwnd: HWND) {
         let window_info = match self.window_info.get(&hwnd.0) {
             Some(val) => val,
             None => return,
@@ -408,7 +419,7 @@ impl WindowManager {
                         .get(&(uncloaked_desktop_id, current_monitor_handle.0))
                     {
                         Some(w) if w.managed_window_handles.len() > 0 => {
-                            let _ = SetForegroundWindow(w.managed_window_handles[0]);
+                            let _ = windows_api::set_foreground_window(w.managed_window_handles[0]);
                         }
                         _ => (),
                     }
@@ -446,7 +457,7 @@ impl WindowManager {
                 .collect::<Vec<*mut core::ffi::c_void>>();
             for h in gathered_hwnds {
                 let info = self.window_info.get(&h).unwrap().to_owned();
-                match self.virtual_desktop_manager.GetWindowDesktopId(HWND(h)) {
+                match windows_api::get_window_desktop_id(&self.virtual_desktop_manager, HWND(h)) {
                     Ok(guid) if guid != previous_desktop_id => {
                         self.remove_hwnd_from_workspace(HWND(h));
                         if info.restored && !self.ignored_windows.contains(&h) {
@@ -479,7 +490,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn foreground_window_changed(&mut self, hwnd: HWND, updating: bool) {
+    fn foreground_window_changed(&mut self, hwnd: HWND, updating: bool) {
         if !self.window_info.contains_key(&hwnd.0) {
             if let Some(previous_foreground_window) = self.foreground_window {
                 self.previous_foreground_window = Some(previous_foreground_window);
@@ -526,14 +537,14 @@ impl WindowManager {
                 for h in &workspace.window_handles {
                     let info = self.window_info.get(h).unwrap();
                     if h != &hwnd.0 && (!info.restored || self.ignored_windows.contains(h)) {
-                        let _ = ShowWindow(HWND(*h), SW_MINIMIZE);
+                        let _ = windows_api::show_window(HWND(*h), SW_MINIMIZE);
                     }
                 }
             }
         }
     }
 
-    unsafe fn window_move_finished(&mut self, hwnd: HWND) {
+    fn window_move_finished(&mut self, hwnd: HWND) {
         if self.ignored_windows.contains(&hwnd.0) {
             return;
         }
@@ -547,7 +558,7 @@ impl WindowManager {
             restored,
             idx,
         } = window_info.to_owned();
-        let new_monitor_handle = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
+        let new_monitor_handle = windows_api::monitor_from_window(hwnd, MONITOR_DEFAULTTONULL);
         if !restored {
             window_info.monitor_handle = new_monitor_handle;
             window_info.idx = match self.workspaces.get(&(desktop_id, new_monitor_handle.0)) {
@@ -558,7 +569,7 @@ impl WindowManager {
         }
         let changed_monitors = original_monitor_handle != new_monitor_handle;
         let mut moved_to = RECT::default();
-        GetWindowRect(hwnd, &mut moved_to).unwrap();
+        windows_api::get_window_rect(hwnd, &mut moved_to).unwrap();
         let moved_to_area = (moved_to.right - moved_to.left) * (moved_to.bottom - moved_to.top);
         let workspace;
         if changed_monitors {
@@ -659,7 +670,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn cycle_focus(&self, direction: CycleDirection) {
+    fn cycle_focus(&self, direction: CycleDirection) {
         let foreground_window = match self.foreground_window {
             Some(hwnd) if !self.ignored_windows.contains(&hwnd.0) => hwnd,
             _ => return,
@@ -694,10 +705,10 @@ impl WindowManager {
                 }
             }
         };
-        let _ = SetForegroundWindow(workspace.managed_window_handles[to]);
+        let _ = windows_api::set_foreground_window(workspace.managed_window_handles[to]);
     }
 
-    unsafe fn cycle_swap(&mut self, direction: CycleDirection) {
+    fn cycle_swap(&mut self, direction: CycleDirection) {
         let foreground_window = match self.foreground_window {
             Some(hwnd) => hwnd,
             None => return,
@@ -745,7 +756,7 @@ impl WindowManager {
         self.update_workspace(desktop_id, monitor_handle);
     }
 
-    unsafe fn cycle_variant(&mut self, direction: CycleDirection) {
+    fn cycle_variant(&mut self, direction: CycleDirection) {
         let foreground_window = match self.foreground_window {
             Some(hwnd) => hwnd,
             None => return,
@@ -793,7 +804,7 @@ impl WindowManager {
         self.update_workspace(desktop_id, monitor_handle);
     }
 
-    unsafe fn cycle_layout(&mut self, direction: CycleDirection) {
+    fn cycle_layout(&mut self, direction: CycleDirection) {
         let foreground_window = match self.foreground_window {
             Some(hwnd) => hwnd,
             None => return,
@@ -841,7 +852,7 @@ impl WindowManager {
         self.update_workspace(desktop_id, monitor_handle);
     }
 
-    unsafe fn cycle_focused_monitor(&self, direction: CycleDirection) {
+    fn cycle_focused_monitor(&self, direction: CycleDirection) {
         if self.monitor_handles.len() <= 1 {
             return;
         }
@@ -890,10 +901,10 @@ impl WindowManager {
             Some(val) if val.managed_window_handles.len() != 0 => val,
             _ => return,
         };
-        let _ = SetForegroundWindow(workspace.managed_window_handles[0]);
+        let _ = windows_api::set_foreground_window(workspace.managed_window_handles[0]);
     }
 
-    unsafe fn cycle_assigned_monitor(&mut self, direction: CycleDirection) {
+    fn cycle_assigned_monitor(&mut self, direction: CycleDirection) {
         if self.monitor_handles.len() <= 1 {
             return;
         }
@@ -901,7 +912,7 @@ impl WindowManager {
             Some(hwnd) if !self.ignored_windows.contains(&hwnd.0) => hwnd,
             _ => return,
         };
-        let original_dpi = GetDpiForWindow(foreground_window);
+        let original_dpi = windows_api::get_dpi_for_window(foreground_window);
         let window_info = match self.window_info.get(&foreground_window.0) {
             Some(val) if val.restored => val,
             _ => return,
@@ -998,7 +1009,7 @@ impl WindowManager {
         };
         self.update_workspace(desktop_id, original_monitor_handle);
         self.update_workspace(desktop_id, new_monitor_handle);
-        if GetDpiForWindow(foreground_window) != original_dpi {
+        if windows_api::get_dpi_for_window(foreground_window) != original_dpi {
             let workspace = self
                 .workspaces
                 .get(&(desktop_id, new_monitor_handle.0))
@@ -1007,7 +1018,7 @@ impl WindowManager {
                 .get_variants()[workspace.variant_idx];
             let position = &layout.get_positions_at(workspace.managed_window_handles.len() - 1)
                 [workspace.managed_window_handles.len() - 1];
-            let _ = SetWindowPos(
+            let _ = windows_api::set_window_pos(
                 foreground_window,
                 None,
                 position.x,
@@ -1029,7 +1040,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn release_window(&mut self) {
+    fn release_window(&mut self) {
         let grabbed_window = match self.grabbed_window {
             Some(hwnd) => hwnd,
             None => return,
@@ -1073,7 +1084,7 @@ impl WindowManager {
                 .get_mut(&self.grabbed_window.unwrap().0)
                 .unwrap();
             original_window_info.restored = true;
-            let _ = ShowWindow(grabbed_window, SW_RESTORE);
+            let _ = windows_api::show_window(grabbed_window, SW_RESTORE);
             true
         } else {
             false
@@ -1111,10 +1122,10 @@ impl WindowManager {
                     new_idx,
                 );
             }
-            let original_dpi = GetDpiForWindow(grabbed_window);
+            let original_dpi = windows_api::get_dpi_for_window(grabbed_window);
             self.update_workspace(original_desktop_id, original_monitor_handle);
             self.update_workspace(original_desktop_id, new_monitor_handle);
-            if GetDpiForWindow(grabbed_window) != original_dpi {
+            if windows_api::get_dpi_for_window(grabbed_window) != original_dpi {
                 let workspace = self
                     .workspaces
                     .get(&(original_desktop_id, new_monitor_handle.0))
@@ -1124,7 +1135,7 @@ impl WindowManager {
                     .get_variants()[workspace.variant_idx];
                 let position =
                     &layout.get_positions_at(workspace.managed_window_handles.len() - 1)[new_idx];
-                let _ = SetWindowPos(
+                let _ = windows_api::set_window_pos(
                     grabbed_window,
                     None,
                     position.x,
@@ -1135,11 +1146,11 @@ impl WindowManager {
                 );
             }
         }
-        let _ = SetForegroundWindow(grabbed_window);
+        let _ = windows_api::set_foreground_window(grabbed_window);
         self.grabbed_window = None;
     }
 
-    unsafe fn toggle_window(&mut self) {
+    fn toggle_window(&mut self) {
         let foreground_window = match self.foreground_window {
             Some(hwnd) => hwnd,
             None => return,
@@ -1155,11 +1166,11 @@ impl WindowManager {
         };
         if self.ignored_windows.remove(&foreground_window.0) {
             if restored {
-                let original_dpi = GetDpiForWindow(foreground_window);
+                let original_dpi = windows_api::get_dpi_for_window(foreground_window);
                 self.foreground_window_changed(foreground_window, true);
                 self.insert_hwnd(desktop_id, monitor_handle, idx, foreground_window);
                 self.update_workspace(desktop_id, monitor_handle);
-                if GetDpiForWindow(foreground_window) != original_dpi {
+                if windows_api::get_dpi_for_window(foreground_window) != original_dpi {
                     let workspace = self
                         .workspaces
                         .get(&(desktop_id, monitor_handle.0))
@@ -1170,7 +1181,7 @@ impl WindowManager {
                     let position = &layout
                         .get_positions_at(workspace.managed_window_handles.len() - 1)
                         [workspace.managed_window_handles.len() - 1];
-                    let _ = SetWindowPos(
+                    let _ = windows_api::set_window_pos(
                         foreground_window,
                         None,
                         position.x,
@@ -1191,7 +1202,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn toggle_workspace(&mut self) {
+    fn toggle_workspace(&mut self) {
         let foreground_window = match self.foreground_window {
             Some(hwnd) => hwnd,
             None => return,
@@ -1226,7 +1237,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn update_workspace(&mut self, guid: GUID, hmonitor: HMONITOR) {
+    fn update_workspace(&mut self, guid: GUID, hmonitor: HMONITOR) {
         if self.ignored_combinations.contains(&(guid, hmonitor.0)) {
             return;
         }
@@ -1251,7 +1262,7 @@ impl WindowManager {
         let mut error_indices: Option<Vec<usize>> = None;
         let positions = variant.get_positions_at(workspace.managed_window_handles.len() - 1);
         for (i, hwnd) in workspace.managed_window_handles.iter().enumerate() {
-            match SetWindowPos(
+            match windows_api::set_window_pos(
                 *hwnd,
                 None,
                 positions[i].x,
@@ -1269,7 +1280,7 @@ impl WindowManager {
                         }
                     }
                     self.window_info.remove(&hwnd.0);
-                    if GetLastError().0 == 5 {
+                    if windows_api::get_last_error().0 == 5 {
                         self.ignored_windows.insert(hwnd.0);
                     }
                 }
@@ -1283,7 +1294,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn update(&mut self) {
+    fn update(&mut self) {
         let keys: Vec<(GUID, *mut core::ffi::c_void)> =
             self.workspaces.keys().map(|k| (k.0, k.1)).collect();
         for k in keys.iter() {
@@ -1311,7 +1322,7 @@ impl WindowManager {
         managed_window_handles.swap(i, j);
     }
 
-    unsafe fn manage_new_window(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
+    fn manage_new_window(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
         self.window_info.insert(
             hwnd.0,
             WindowInfo::new(guid, hmonitor, is_restored(hwnd), 0),
@@ -1335,7 +1346,7 @@ impl WindowManager {
                         window_rules::SetPosition::Default => (),
                         window_rules::SetPosition::Center => self.center_window(hwnd),
                         window_rules::SetPosition::Position { x, y, w, h } => {
-                            let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+                            let _ = windows_api::set_window_pos(hwnd, None, x, y, w, h, SWP_NOZORDER);
                         }
                     }
                 }
@@ -1345,7 +1356,7 @@ impl WindowManager {
         self.initialize_border(hwnd);
     }
 
-    unsafe fn move_windows_across_monitors(
+    fn move_windows_across_monitors(
         &mut self,
         guid: GUID,
         first_hmonitor: HMONITOR,
@@ -1360,8 +1371,8 @@ impl WindowManager {
         self.insert_hwnd(guid, second_hmonitor, second_idx, hwnd);
     }
 
-    unsafe fn set_border_to_unfocused(&self, hwnd: HWND) {
-        let _ = DwmSetWindowAttribute(
+    fn set_border_to_unfocused(&self, hwnd: HWND) {
+        let _ = windows_api::dwm_set_window_attribute(
             hwnd,
             DWMWA_BORDER_COLOR,
             &self.settings.get_unfocused_border_colour() as *const COLORREF
@@ -1370,8 +1381,8 @@ impl WindowManager {
         );
     }
 
-    unsafe fn set_border_to_focused(&self, hwnd: HWND) {
-        let _ = DwmSetWindowAttribute(
+    fn set_border_to_focused(&self, hwnd: HWND) {
+        let _ = windows_api::dwm_set_window_attribute(
             hwnd,
             DWMWA_BORDER_COLOR,
             &self.settings.focused_border_colour as *const COLORREF as *const core::ffi::c_void,
@@ -1379,13 +1390,13 @@ impl WindowManager {
         );
     }
 
-    unsafe fn initialize_border(&self, hwnd: HWND) {
+    fn initialize_border(&self, hwnd: HWND) {
         let corner_preference = if self.settings.disable_rounding {
             DWMWCP_DONOTROUND
         } else {
             DWMWCP_DEFAULT
         };
-        let _ = DwmSetWindowAttribute(
+        let _ = windows_api::dwm_set_window_attribute(
             hwnd,
             DWMWA_WINDOW_CORNER_PREFERENCE,
             &corner_preference as *const DWM_WINDOW_CORNER_PREFERENCE as *const core::ffi::c_void,
@@ -1394,14 +1405,14 @@ impl WindowManager {
         self.set_border_to_unfocused(hwnd);
     }
 
-    unsafe fn reset_border(hwnd: HWND) {
-        let _corner = DwmSetWindowAttribute(
+    fn reset_border(hwnd: HWND) {
+        let _corner = windows_api::dwm_set_window_attribute(
             hwnd,
             DWMWA_WINDOW_CORNER_PREFERENCE,
             &DWMWCP_DEFAULT as *const DWM_WINDOW_CORNER_PREFERENCE as *const core::ffi::c_void,
             std::mem::size_of_val(&DWMWCP_DEFAULT) as u32,
         );
-        let _border_colour = DwmSetWindowAttribute(
+        let _border_colour = windows_api::dwm_set_window_attribute(
             hwnd,
             DWMWA_BORDER_COLOR,
             &COLORREF(DWMWA_COLOR_DEFAULT) as *const COLORREF as *const core::ffi::c_void,
@@ -1409,12 +1420,15 @@ impl WindowManager {
         );
     }
 
-    unsafe fn unfocus_border_with_combination_check(&self, hwnd: HWND) {
+    fn unfocus_border_with_combination_check(&self, hwnd: HWND) {
         let WindowInfo {
             desktop_id,
             monitor_handle,
             ..
-        } = self.window_info.get(&hwnd.0).unwrap();
+        } = match self.window_info.get(&hwnd.0) {
+            Some(val) => val,
+            None => return,
+        };
         if !self
             .ignored_combinations
             .contains(&(*desktop_id, monitor_handle.0))
@@ -1423,7 +1437,7 @@ impl WindowManager {
         }
     }
 
-    unsafe fn center_window(&self, hwnd: HWND) {
+    fn center_window(&self, hwnd: HWND) {
         let window_info = match self.window_info.get(&hwnd.0) {
             Some(val) => val,
             None => return,
@@ -1445,7 +1459,7 @@ impl WindowManager {
             as i32;
         let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.left;
         let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.top;
-        let _ = SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+        let _ = windows_api::set_window_pos(hwnd, None, x, y, w, h, SWP_NOZORDER);
     }
 
     fn add_hwnd_to_workspace(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
@@ -1567,7 +1581,7 @@ impl WindowManager {
         return Some(hwnd);
     }
 
-    unsafe fn get_window_rule(
+    fn get_window_rule(
         &mut self,
         hwnd: HWND,
         filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
@@ -1611,7 +1625,7 @@ impl WindowManager {
         }
     }
 
-    unsafe extern "system" fn event_handler(
+    extern "system" fn event_handler(
         _hwineventhook: HWINEVENTHOOK,
         event: u32,
         hwnd: HWND,
@@ -1629,7 +1643,7 @@ impl WindowManager {
         }
         match event {
             EVENT_OBJECT_SHOW if idobject == OBJID_WINDOW.0 => {
-                PostMessageA(
+                windows_api::post_message(
                     None,
                     messages::WINDOW_CREATED,
                     WPARAM(hwnd.0 as usize),
@@ -1638,7 +1652,7 @@ impl WindowManager {
                 .unwrap();
             }
             EVENT_OBJECT_DESTROY if idobject == OBJID_WINDOW.0 => {
-                PostMessageA(
+                windows_api::post_message(
                     None,
                     messages::WINDOW_DESTROYED,
                     WPARAM(hwnd.0 as usize),
@@ -1648,7 +1662,7 @@ impl WindowManager {
             }
             EVENT_OBJECT_LOCATIONCHANGE => {
                 if is_restored(hwnd) {
-                    PostMessageA(
+                    windows_api::post_message(
                         None,
                         messages::WINDOW_RESTORED,
                         WPARAM(hwnd.0 as usize),
@@ -1656,7 +1670,7 @@ impl WindowManager {
                     )
                     .unwrap();
                 } else {
-                    PostMessageA(
+                    windows_api::post_message(
                         None,
                         messages::STOP_MANAGING_WINDOW,
                         WPARAM(hwnd.0 as usize),
@@ -1666,7 +1680,7 @@ impl WindowManager {
                 }
             }
             EVENT_OBJECT_HIDE if idobject == OBJID_WINDOW.0 => {
-                PostMessageA(
+                windows_api::post_message(
                     None,
                     messages::STOP_MANAGING_WINDOW,
                     WPARAM(hwnd.0 as usize),
@@ -1675,7 +1689,7 @@ impl WindowManager {
                 .unwrap();
             }
             EVENT_OBJECT_CLOAKED if idobject == OBJID_WINDOW.0 => {
-                PostMessageA(
+                windows_api::post_message(
                     None,
                     messages::WINDOW_CLOAKED,
                     WPARAM(hwnd.0 as usize),
@@ -1684,7 +1698,7 @@ impl WindowManager {
                 .unwrap();
             }
             EVENT_OBJECT_UNCLOAKED if idobject == OBJID_WINDOW.0 => {
-                PostMessageA(
+                windows_api::post_message(
                     None,
                     messages::WINDOW_UNCLOAKED,
                     WPARAM(hwnd.0 as usize),
@@ -1693,7 +1707,7 @@ impl WindowManager {
                 .unwrap();
             }
             EVENT_SYSTEM_FOREGROUND | EVENT_OBJECT_FOCUS => {
-                PostMessageA(
+                windows_api::post_message(
                     None,
                     messages::FOREGROUND_WINDOW_CHANGED,
                     WPARAM(hwnd.0 as usize),
@@ -1702,7 +1716,7 @@ impl WindowManager {
                 .unwrap();
             }
             EVENT_SYSTEM_MOVESIZEEND => {
-                PostMessageA(
+                windows_api::post_message(
                     None,
                     messages::WINDOW_MOVE_FINISHED,
                     WPARAM(hwnd.0 as usize),
@@ -1716,13 +1730,13 @@ impl WindowManager {
 
     unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
         let wm = &mut *(lparam.0 as *mut WindowManager);
-        let desktop_id = match wm.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
+        let desktop_id = match windows_api::get_window_desktop_id(&wm.virtual_desktop_manager, hwnd) {
             Ok(guid) if guid != GUID::zeroed() => guid,
             _ => return true.into(),
         };
-        let monitor_handle = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
+        let monitor_handle = windows_api::monitor_from_window(hwnd, MONITOR_DEFAULTTONULL);
         if monitor_handle.is_invalid()
-            || !IsWindowVisible(hwnd).as_bool()
+            || !windows_api::is_window_visible(hwnd).as_bool()
             || !is_overlapped_window(hwnd)
         {
             return true.into();
@@ -1744,26 +1758,26 @@ impl WindowManager {
     }
 }
 
-unsafe fn is_restored(hwnd: HWND) -> bool {
+fn is_restored(hwnd: HWND) -> bool {
     return has_sizebox(hwnd)
-        && !IsIconic(hwnd).as_bool()
-        && !IsZoomed(hwnd).as_bool()
-        && !IsWindowArranged(hwnd).as_bool()
-        && IsWindowVisible(hwnd).as_bool();
+        && !windows_api::is_iconic(hwnd).as_bool()
+        && !windows_api::is_zoomed(hwnd).as_bool()
+        && !windows_api::is_window_arranged(hwnd).as_bool()
+        && windows_api::is_window_visible(hwnd).as_bool();
 }
 
-unsafe fn has_sizebox(hwnd: HWND) -> bool {
-    GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_SIZEBOX.0 as isize != 0
+fn has_sizebox(hwnd: HWND) -> bool {
+    windows_api::get_window_long_ptr(hwnd, GWL_STYLE) & WS_SIZEBOX.0 as isize != 0
 }
 
-unsafe fn is_overlapped_window(hwnd: HWND) -> bool {
-    GetWindowLongPtrA(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW.0 as isize != 0
+fn is_overlapped_window(hwnd: HWND) -> bool {
+    windows_api::get_window_long_ptr(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW.0 as isize != 0
 }
 
-pub unsafe fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option<Layout> {
+pub fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option<Layout> {
     let mut monitor_info = MONITORINFO::default();
     monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
-    let _ = GetMonitorInfoA(hmonitor, &mut monitor_info);
+    let _ = windows_api::get_monitor_info(hmonitor, &mut monitor_info);
     let monitor_rect = Zone::from(monitor_info.rcWork);
     let variant_monitor_rect = layout.get_monitor_rect();
     if &monitor_rect == variant_monitor_rect {
@@ -1801,7 +1815,7 @@ pub unsafe fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) ->
     return Some(ret);
 }
 
-pub unsafe fn handle_message(msg: MSG, wm: &mut WindowManager) {
+pub fn handle_message(msg: MSG, wm: &mut WindowManager) {
     match msg.message {
         messages::WINDOW_CREATED => {
             wm.manage_window(HWND(msg.wParam.0 as *mut core::ffi::c_void));
