@@ -9,28 +9,39 @@ enum MatchType {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
+pub struct Position {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
 pub enum SetPosition {
     Default,
     Center,
-    Position { x: i32, y: i32, w: i32, h: i32 },
+    Position(Position),
 }
 
 #[derive(Deserialize, Serialize)]
 enum Rule {
     Layout(String),
     StartFloating(SetPosition),
+    FloatingPosition(Position),
 }
 
 #[derive(Clone)]
 pub enum InternalRule {
     LayoutIdx(usize),
     StartFloating(SetPosition),
+    FloatingPosition(Position),
 }
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum FilterRule {
     Layout,
     StartFloating,
+    FloatingPosition,
 }
 
 impl From<&InternalRule> for FilterRule {
@@ -38,6 +49,7 @@ impl From<&InternalRule> for FilterRule {
         match value {
             InternalRule::LayoutIdx(_) => return Self::Layout,
             InternalRule::StartFloating(_) => return Self::StartFloating,
+            InternalRule::FloatingPosition(_) => return Self::FloatingPosition,
         }
     }
 }
@@ -82,6 +94,7 @@ pub fn get_internal_window_rules(
             Rule::StartFloating(set_position) => {
                 InternalRule::StartFloating(set_position.to_owned())
             }
+            Rule::FloatingPosition(position) => InternalRule::FloatingPosition(position.to_owned()),
         };
         let internal_window_rule = InternalWindowRule {
             regex: Regex::new(&window_rule.regex).unwrap(),

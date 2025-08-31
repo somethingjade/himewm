@@ -273,12 +273,18 @@ impl WindowManager {
                     match set_position {
                         window_rules::SetPosition::Default => (),
                         window_rules::SetPosition::Center => self.center_window(hwnd),
-                        window_rules::SetPosition::Position { x, y, w, h } => {
+                        window_rules::SetPosition::Position(window_rules::Position {
+                            x,
+                            y,
+                            w,
+                            h,
+                        }) => {
                             let _ =
                                 windows_api::set_window_pos(hwnd, None, x, y, w, h, SWP_NOZORDER);
                         }
                     }
                 }
+                _ => (),
             },
             None => self.push_hwnd(guid, hmonitor, hwnd),
         }
@@ -1243,7 +1249,31 @@ impl WindowManager {
                 return;
             }
             self.update_workspace(desktop_id, monitor_handle);
-            self.center_window(foreground_window);
+            let filter = Some(std::collections::HashSet::from([
+                window_rules::FilterRule::FloatingPosition,
+            ]));
+            match self.get_window_rule(foreground_window, &filter) {
+                Some(rule) => match rule {
+                    window_rules::InternalRule::FloatingPosition(window_rules::Position {
+                        x,
+                        y,
+                        w,
+                        h,
+                    }) => {
+                        let _ = windows_api::set_window_pos(
+                            foreground_window,
+                            None,
+                            x,
+                            y,
+                            w,
+                            h,
+                            SWP_NOZORDER,
+                        );
+                    }
+                    _ => (),
+                },
+                None => self.center_window(foreground_window),
+            }
         }
     }
 
