@@ -1,4 +1,5 @@
-use crate::windows_api;
+use crate::{directories, windows_api};
+use serde::{Deserialize, Serialize};
 use windows::Win32::System::Console::*;
 
 pub fn show_error_message(message: &str) {
@@ -13,4 +14,25 @@ pub fn show_error_message(message: &str) {
     println!("Press ENTER to exit");
     let mut buf = String::new();
     let _read_line = std::io::stdin().read_line(&mut buf);
+}
+
+pub fn initialize_user_config<T>(file_name: &str) -> T where for<'a> T: Default + Deserialize<'a> + Serialize {
+    let dirs = directories::Directories::new();
+    let config_path = dirs.config_dir.join(format!("{file_name}"));
+    match std::fs::read(&config_path) {
+        Ok(byte_vector) => match serde_json::from_slice::<T>(byte_vector.as_slice()) {
+            Ok(user_config) => {
+                return user_config;
+            }
+            Err(_) => {
+                return T::default();
+            }
+        },
+        Err(_) => {
+            let file = std::fs::File::create_new(config_path).unwrap();
+            let default_user_config = T::default();
+            let _ = serde_json::to_writer_pretty(&file, &default_user_config);
+            return default_user_config;
+        }
+    }
 }

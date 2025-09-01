@@ -1,4 +1,3 @@
-use crate::directories::*;
 use serde::{Deserialize, Serialize};
 use windows::Win32::{Foundation::COLORREF, Graphics::Dwm::DWMWA_COLOR_DEFAULT};
 
@@ -147,26 +146,5 @@ fn parse_unfocused_border_colour(s: &str) -> COLORREF {
         return COLORREF(DWMWA_COLOR_DEFAULT);
     } else {
         return hex_string_to_colorref(s);
-    }
-}
-
-pub fn initialize_settings() -> UserSettings {
-    let dirs = Directories::new();
-    let settings_path = dirs.config_dir.join("settings.json");
-    match std::fs::read(&settings_path) {
-        Ok(byte_vector) => match serde_json::from_slice::<UserSettings>(byte_vector.as_slice()) {
-            Ok(settings) => {
-                return settings;
-            }
-            Err(_) => {
-                return UserSettings::default();
-            }
-        },
-        Err(_) => {
-            let settings_file = std::fs::File::create_new(settings_path).unwrap();
-            let default_user_settings = UserSettings::default();
-            let _ = serde_json::to_writer_pretty(&settings_file, &default_user_settings);
-            return default_user_settings;
-        }
     }
 }

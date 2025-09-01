@@ -1,4 +1,3 @@
-use crate::directories::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -106,21 +105,4 @@ pub fn get_internal_window_rules(
         }
     }
     return ret;
-}
-
-pub fn initialize_window_rules() -> Vec<WindowRule> {
-    let dirs = Directories::new();
-    let window_rules_path = dirs.config_dir.join("window_rules.json");
-    match std::fs::read(&window_rules_path) {
-        Ok(byte_vector) => match serde_json::from_slice::<Vec<WindowRule>>(&byte_vector) {
-            Ok(window_rules) => return window_rules,
-            Err(_) => return Vec::new(),
-        },
-        Err(_) => {
-            let window_rules_file = std::fs::File::create_new(window_rules_path).unwrap();
-            let window_rules = Vec::<WindowRule>::new();
-            let _ = serde_json::to_writer_pretty(&window_rules_file, &window_rules);
-            return window_rules;
-        }
-    }
 }
