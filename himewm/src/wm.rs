@@ -1,4 +1,4 @@
-use crate::{util, window_rules, windows_api, wm_cb, wm_util};
+use crate::{window_rules, windows_api, wm_cb, wm_util};
 use himewm_layout::*;
 use windows::{
     core::*,
@@ -1627,7 +1627,7 @@ impl WindowManager {
         hwnd: HWND,
         filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
     ) -> Option<window_rules::InternalRule> {
-        match util::get_window_title(hwnd) {
+        match wm_util::get_window_title(hwnd) {
             Ok(title) => {
                 for window_rule in &self.window_rules.title_window_rules {
                     if window_rule.regex.is_match(&title) {
@@ -1645,7 +1645,7 @@ impl WindowManager {
             }
             Err(_) => (),
         }
-        match util::get_exe_name(hwnd) {
+        match wm_util::get_exe_name(hwnd) {
             Ok(title) => {
                 for window_rule in &self.window_rules.process_window_rules {
                     if window_rule.regex.is_match(&title) {
