@@ -5,8 +5,8 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 fn main() {
     // Maybe error handle this
     let _create_dirs = directories::create_dirs();
-    let user_settings = user_settings::initialize_settings();
-    let user_window_rules = window_rules::initialize_window_rules();
+    let user_settings = util::initialize_user_config::<user_settings::UserSettings>("settings.json");
+    let user_window_rules = util::initialize_user_config("window_rules.json");
     let mut msg = MSG::default();
     let layouts = match layouts::initialize_layouts() {
         Some(val) => val,
