@@ -16,7 +16,10 @@ pub fn show_error_message(message: &str) {
     let _read_line = std::io::stdin().read_line(&mut buf);
 }
 
-pub fn initialize_user_config<T>(file_name: &str) -> T where for<'a> T: Default + Deserialize<'a> + Serialize {
+pub fn initialize_user_config<T>(file_name: &str) -> T
+where
+    for<'a> T: Default + Deserialize<'a> + Serialize,
+{
     let dirs = directories::Directories::new();
     let config_path = dirs.config_dir.join(format!("{file_name}"));
     match std::fs::read(&config_path) {

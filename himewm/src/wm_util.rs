@@ -2,12 +2,7 @@ use crate::windows_api;
 use himewm_layout::*;
 use windows::{
     core::PSTR,
-    Win32::{
-        Foundation::*,
-        Graphics::Gdi::*,
-        System::Threading::*,
-        UI::WindowsAndMessaging::*,
-    },
+    Win32::{Foundation::*, Graphics::Gdi::*, System::Threading::*, UI::WindowsAndMessaging::*},
 };
 
 const MAX_PATH_LEN: usize = 1024;
