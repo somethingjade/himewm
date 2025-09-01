@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use windows::Win32::{Foundation::COLORREF, Graphics::Dwm::DWMWA_COLOR_DEFAULT};
 
 #[derive(Deserialize, Serialize)]
-pub struct LayoutSettings {
+struct LayoutSettings {
     default_layout: std::path::PathBuf,
     window_padding: i32,
     edge_padding: i32,
@@ -19,7 +19,7 @@ impl Default for LayoutSettings {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct BorderSettings {
+struct BorderSettings {
     disable_rounding: bool,
     disable_unfocused_border: bool,
     focused_border_colour: String,
@@ -38,7 +38,7 @@ impl Default for BorderSettings {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct MiscSettings {
+struct MiscSettings {
     floating_window_default_w_ratio: f64,
     floating_window_default_h_ratio: f64,
 }
@@ -53,7 +53,7 @@ impl Default for MiscSettings {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct AdvancedSettings {
+struct AdvancedSettings {
     new_window_retries: i32,
 }
 
