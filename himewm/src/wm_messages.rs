@@ -8,6 +8,8 @@ pub mod messages {
     pub const WINDOW_UNCLOAKED: u32 = WM_APP + 6;
     pub const FOREGROUND_WINDOW_CHANGED: u32 = WM_APP + 7;
     pub const WINDOW_MOVE_FINISHED: u32 = WM_APP + 8;
+    pub const REQUEST_RESTART: u32 = WM_APP + 9;
+    pub const RESTART_HIMEWM: u32 = WM_APP + 10;
 }
 
 pub mod hotkey_identifiers {
@@ -28,5 +30,10 @@ pub mod hotkey_identifiers {
     pub const TOGGLE_WINDOW: usize = 14;
     pub const TOGGLE_WORKSPACE: usize = 15;
     pub const REFRESH_WORKSPACE: usize = 16;
-    pub const RESTART_HIMEWM: usize = 17;
+    pub const REQUEST_RESTART: usize = 17;
+}
+
+pub mod tray_menu_ids {
+    pub const QUIT: &str = "quit";
+    pub const RESTART: &str = "restart";
 }

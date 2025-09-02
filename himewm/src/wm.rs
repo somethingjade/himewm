@@ -1,4 +1,4 @@
-use crate::{window_rules, windows_api, wm_cb, wm_util};
+use crate::{window_rules, windows_api, wm_cb, wm_messages, wm_util};
 use himewm_layout::*;
 use windows::{
     core::*,
@@ -131,13 +131,19 @@ pub struct WindowManager {
     desktop_switching_state: DesktopSwitchingState,
     settings: Settings,
     window_rules: window_rules::InternalWindowRules,
+    restart_requested: bool,
 }
 
 impl WindowManager {
-    pub fn new(settings: Settings, window_rules: window_rules::InternalWindowRules) -> Self {
-        let _ = windows_api::co_initialize_ex(None, COINIT_MULTITHREADED);
-        Self {
-            event_hook: windows_api::set_win_event_hook(
+    pub fn new(
+        settings: Settings,
+        window_rules: window_rules::InternalWindowRules,
+        existing_event_hook: Option<HWINEVENTHOOK>,
+        existing_vd_manager: Option<IVirtualDesktopManager>,
+    ) -> Self {
+        let event_hook = match existing_event_hook {
+            Some(hook) => hook,
+            None => windows_api::set_win_event_hook(
                 EVENT_MIN,
                 EVENT_MAX,
                 None,
@@ -146,12 +152,18 @@ impl WindowManager {
                 0,
                 WINEVENT_OUTOFCONTEXT,
             ),
-            virtual_desktop_manager: windows_api::co_create_instance(
-                &VirtualDesktopManager,
-                None,
-                CLSCTX_INPROC_SERVER,
-            )
-            .unwrap(),
+        };
+        let virtual_desktop_manager = match existing_vd_manager {
+            Some(vd_manager) => vd_manager,
+            None => {
+                let _ = windows_api::co_initialize_ex(None, COINIT_MULTITHREADED);
+                windows_api::co_create_instance(&VirtualDesktopManager, None, CLSCTX_INPROC_SERVER)
+                    .unwrap()
+            }
+        };
+        Self {
+            event_hook,
+            virtual_desktop_manager,
             monitor_handles: Vec::new(),
             window_info: std::collections::HashMap::new(),
             workspaces: std::collections::HashMap::new(),
@@ -164,6 +176,7 @@ impl WindowManager {
             desktop_switching_state: DesktopSwitchingState::default(),
             settings,
             window_rules,
+            restart_requested: false,
         }
     }
 
@@ -248,6 +261,10 @@ impl WindowManager {
 
     pub fn get_settings_mut(&mut self) -> &mut Settings {
         &mut self.settings
+    }
+
+    pub fn restart_requested(&self) -> bool {
+        self.restart_requested
     }
 
     pub fn manage_new_window(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
@@ -1340,6 +1357,17 @@ impl WindowManager {
         self.update_workspace(desktop_id, monitor_handle);
     }
 
+    pub fn restart_himewm(&mut self) {
+        self.restart_requested = true;
+        windows_api::post_message(
+            None,
+            wm_messages::messages::RESTART_HIMEWM,
+            WPARAM::default(),
+            LPARAM::default(),
+        )
+        .unwrap();
+    }
+
     fn update_workspace(&mut self, guid: GUID, hmonitor: HMONITOR) {
         if self.ignored_combinations.contains(&(guid, hmonitor.0)) {
             return;
@@ -1692,5 +1720,10 @@ impl WindowManager {
             }
             Err(_) => return None,
         }
+    }
+
+    pub fn shutdown(self) {
+        let _unhook_win_event = windows_api::unhook_win_event(self.event_hook);
+        windows_api::co_uninitialize();
     }
 }

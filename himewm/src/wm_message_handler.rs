@@ -31,6 +31,9 @@ pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
         wm_messages::messages::WINDOW_MOVE_FINISHED => {
             wm.window_move_finished(HWND(msg.wParam.0 as *mut core::ffi::c_void));
         }
+        wm_messages::messages::REQUEST_RESTART => {
+            wm.restart_himewm();
+        }
         WM_HOTKEY => match msg.wParam.0 {
             wm_messages::hotkey_identifiers::FOCUS_PREVIOUS => {
                 wm.cycle_focus(wm::CycleDirection::Previous);
@@ -82,6 +85,9 @@ pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
             }
             wm_messages::hotkey_identifiers::REFRESH_WORKSPACE => {
                 wm.refresh_workspace();
+            }
+            wm_messages::hotkey_identifiers::REQUEST_RESTART => {
+                wm.restart_himewm();
             }
             _ => (),
         },

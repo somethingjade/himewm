@@ -287,7 +287,7 @@ pub fn register_hotkeys(keybinds: Keybinds) {
     if let Some(keybind) = keybinds.restart_himewm {
         let _ = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::RESTART_HIMEWM as i32,
+            wm_messages::hotkey_identifiers::REQUEST_RESTART as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
         );
