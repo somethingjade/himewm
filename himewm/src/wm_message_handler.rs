@@ -1,4 +1,4 @@
-use crate::{keybinds, wm, wm_messages};
+use crate::{wm, wm_messages};
 use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
 pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
@@ -32,53 +32,56 @@ pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
             wm.window_move_finished(HWND(msg.wParam.0 as *mut core::ffi::c_void));
         }
         WM_HOTKEY => match msg.wParam.0 {
-            keybinds::hotkey_identifiers::FOCUS_PREVIOUS => {
+            wm_messages::hotkey_identifiers::FOCUS_PREVIOUS => {
                 wm.cycle_focus(wm::CycleDirection::Previous);
             }
-            keybinds::hotkey_identifiers::FOCUS_NEXT => {
+            wm_messages::hotkey_identifiers::FOCUS_NEXT => {
                 wm.cycle_focus(wm::CycleDirection::Next);
             }
-            keybinds::hotkey_identifiers::SWAP_PREVIOUS => {
+            wm_messages::hotkey_identifiers::SWAP_PREVIOUS => {
                 wm.cycle_swap(wm::CycleDirection::Previous);
             }
-            keybinds::hotkey_identifiers::SWAP_NEXT => {
+            wm_messages::hotkey_identifiers::SWAP_NEXT => {
                 wm.cycle_swap(wm::CycleDirection::Next);
             }
-            keybinds::hotkey_identifiers::VARIANT_PREVIOUS => {
+            wm_messages::hotkey_identifiers::VARIANT_PREVIOUS => {
                 wm.cycle_variant(wm::CycleDirection::Previous);
             }
-            keybinds::hotkey_identifiers::VARIANT_NEXT => {
+            wm_messages::hotkey_identifiers::VARIANT_NEXT => {
                 wm.cycle_variant(wm::CycleDirection::Next);
             }
-            keybinds::hotkey_identifiers::LAYOUT_PREVIOUS => {
+            wm_messages::hotkey_identifiers::LAYOUT_PREVIOUS => {
                 wm.cycle_layout(wm::CycleDirection::Previous);
             }
-            keybinds::hotkey_identifiers::LAYOUT_NEXT => {
+            wm_messages::hotkey_identifiers::LAYOUT_NEXT => {
                 wm.cycle_layout(wm::CycleDirection::Next);
             }
-            keybinds::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
+            wm_messages::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
                 wm.cycle_focused_monitor(wm::CycleDirection::Previous);
             }
-            keybinds::hotkey_identifiers::FOCUS_NEXT_MONITOR => {
+            wm_messages::hotkey_identifiers::FOCUS_NEXT_MONITOR => {
                 wm.cycle_focused_monitor(wm::CycleDirection::Next);
             }
-            keybinds::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
+            wm_messages::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
                 wm.cycle_assigned_monitor(wm::CycleDirection::Previous);
             }
-            keybinds::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => {
+            wm_messages::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => {
                 wm.cycle_assigned_monitor(wm::CycleDirection::Next);
             }
-            keybinds::hotkey_identifiers::GRAB_WINDOW => {
+            wm_messages::hotkey_identifiers::GRAB_WINDOW => {
                 wm.grab_window();
             }
-            keybinds::hotkey_identifiers::RELEASE_WINDOW => {
+            wm_messages::hotkey_identifiers::RELEASE_WINDOW => {
                 wm.release_window();
             }
-            keybinds::hotkey_identifiers::TOGGLE_WINDOW => {
+            wm_messages::hotkey_identifiers::TOGGLE_WINDOW => {
                 wm.toggle_window();
             }
-            keybinds::hotkey_identifiers::TOGGLE_WORKSPACE => {
+            wm_messages::hotkey_identifiers::TOGGLE_WORKSPACE => {
                 wm.toggle_workspace();
+            }
+            wm_messages::hotkey_identifiers::REFRESH_WORKSPACE => {
+                wm.refresh_workspace();
             }
             _ => (),
         },

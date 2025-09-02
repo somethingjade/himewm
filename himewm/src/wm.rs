@@ -1215,6 +1215,12 @@ impl WindowManager {
             Some(val) => val.to_owned(),
             None => return,
         };
+        if self
+            .ignored_combinations
+            .contains(&(desktop_id, monitor_handle.0))
+        {
+            return;
+        }
         if self.ignored_windows.remove(&foreground_window.0) {
             if restored {
                 let original_dpi = windows_api::get_dpi_for_window(foreground_window);
@@ -1310,6 +1316,28 @@ impl WindowManager {
             self.ignored_combinations
                 .insert((*desktop_id, monitor_handle.0));
         }
+    }
+
+    pub fn refresh_workspace(&mut self) {
+        let foreground_window = match self.foreground_window {
+            Some(hwnd) => hwnd,
+            None => return,
+        };
+        let WindowInfo {
+            desktop_id,
+            monitor_handle,
+            ..
+        } = match self.window_info.get(&foreground_window.0) {
+            Some(val) => val.to_owned(),
+            None => return,
+        };
+        if self
+            .ignored_combinations
+            .contains(&(desktop_id, monitor_handle.0))
+        {
+            return;
+        }
+        self.update_workspace(desktop_id, monitor_handle);
     }
 
     fn update_workspace(&mut self, guid: GUID, hmonitor: HMONITOR) {
