@@ -1705,7 +1705,10 @@ impl WindowManager {
         }
     }
 
-    pub fn shutdown(self) {
+    pub fn exit(self) {
+        for h in self.window_info.keys() {
+            Self::reset_border(HWND(*h));
+        }
         let _unhook_win_event = windows_api::unhook_win_event(self.event_hook);
         windows_api::co_uninitialize();
     }

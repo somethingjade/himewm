@@ -54,6 +54,6 @@ fn main() {
         windows_api::dispatch_message(&msg);
     }
     if let Some(wm) = window_manager {
-        wm.shutdown();
+        wm.exit();
     }
 }
