@@ -31,7 +31,7 @@ impl Default for BorderSettings {
         Self {
             disable_rounding: false,
             disable_unfocused_border: false,
-            focused_border_colour: String::from("ffffff"),
+            focused_border_colour: String::from(""),
             unfocused_border_colour: String::from(""),
         }
     }
@@ -103,10 +103,10 @@ impl UserSettings {
             edge_padding: self.layout_settings.edge_padding,
             disable_rounding: self.border_settings.disable_rounding,
             disable_unfocused_border: self.border_settings.disable_unfocused_border,
-            focused_border_colour: hex_string_to_colorref(
+            focused_border_colour: parse_border_colour(
                 self.border_settings.focused_border_colour.as_str(),
             ),
-            unfocused_border_colour: parse_unfocused_border_colour(
+            unfocused_border_colour: parse_border_colour(
                 self.border_settings.unfocused_border_colour.as_str(),
             ),
             floating_window_default_w_ratio: self.misc_settings.floating_window_default_w_ratio,
@@ -141,7 +141,7 @@ fn hex_string_to_colorref(s: &str) -> COLORREF {
     return COLORREF(r as u32 | (g as u32) << 8 | (b as u32) << 16);
 }
 
-fn parse_unfocused_border_colour(s: &str) -> COLORREF {
+fn parse_border_colour(s: &str) -> COLORREF {
     if s.trim().len() == 0 {
         return COLORREF(DWMWA_COLOR_DEFAULT);
     } else {

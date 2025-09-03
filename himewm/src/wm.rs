@@ -28,23 +28,6 @@ pub struct Settings {
     pub new_window_retries: i32,
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            default_layout_idx: 0,
-            window_padding: 0,
-            edge_padding: 0,
-            disable_rounding: false,
-            disable_unfocused_border: false,
-            focused_border_colour: COLORREF(0x00FFFFFF),
-            unfocused_border_colour: COLORREF(DWMWA_COLOR_DEFAULT),
-            floating_window_default_w_ratio: 0.5,
-            floating_window_default_h_ratio: 0.5,
-            new_window_retries: 10000,
-        }
-    }
-}
-
 impl Settings {
     fn get_unfocused_border_colour(&self) -> COLORREF {
         if self.disable_unfocused_border {
