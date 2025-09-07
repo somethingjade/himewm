@@ -171,18 +171,13 @@ impl WindowManager {
             LPARAM(self as *mut WindowManager as isize),
         );
         for layout in layouts {
-            let monitor_rect = layout.get_monitor_rect();
             for (hmonitor, layouts) in self.layouts.iter_mut() {
                 let mut layout =
                     match wm_util::convert_layout_for_monitor(&layout, HMONITOR(*hmonitor)) {
                         Some(val) => val,
                         None => layout.clone(),
                     };
-                layout.update_all(
-                    self.settings.window_padding,
-                    self.settings.edge_padding,
-                    monitor_rect,
-                );
+                layout.update_all(self.settings.window_padding, self.settings.edge_padding);
                 layouts.push(layout);
             }
         }
@@ -660,40 +655,41 @@ impl WindowManager {
         }
         let mut max_overlap_at: (usize, i32) = (workspace.managed_window_handles.len(), 0);
         {
+            let layout;
             let positions = if changed_monitors {
-                let layout =
+                layout =
                     &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
-                let monitor_rect = layout.get_monitor_rect().to_owned();
-                let variant = &mut layout.get_variants_mut()[workspace.variant_idx];
-                while variant.positions_len() < workspace.managed_window_handles.len() {
-                    variant.extend();
-                    variant.update(
-                        self.settings.window_padding,
-                        self.settings.edge_padding,
-                        &monitor_rect,
-                    );
-                }
-                variant.get_positions_at(workspace.managed_window_handles.len())
+                layout.get_internal_positions(
+                    workspace.variant_idx,
+                    workspace.managed_window_handles.len() + 1,
+                    self.settings.window_padding,
+                    self.settings.edge_padding,
+                )
             } else {
-                self.layouts.get(&original_monitor_handle.0).unwrap()[workspace.layout_idx]
-                    .get_variants()[workspace.variant_idx]
-                    .get_positions_at(workspace.managed_window_handles.len() - 1)
+                layout = &mut self.layouts.get_mut(&original_monitor_handle.0).unwrap()
+                    [workspace.layout_idx];
+                layout.get_internal_positions(
+                    workspace.variant_idx,
+                    workspace.managed_window_handles.len(),
+                    self.settings.window_padding,
+                    self.settings.edge_padding,
+                )
             };
             if !changed_monitors {
                 let position = &positions[idx];
-                if moved_to.left == position.x
-                    && moved_to.top == position.y
-                    && moved_to.right - moved_to.left == position.cx
-                    && moved_to.bottom - moved_to.top == position.cy
+                if moved_to.left == position.x()
+                    && moved_to.top == position.y()
+                    && moved_to.right - moved_to.left == position.w()
+                    && moved_to.bottom - moved_to.top == position.h()
                 {
                     return;
                 }
             }
             for (i, p) in positions.iter().enumerate() {
-                let left = std::cmp::max(moved_to.left, p.x);
-                let top = std::cmp::max(moved_to.top, p.y);
-                let right = std::cmp::min(moved_to.right, p.x + p.cx);
-                let bottom = std::cmp::min(moved_to.bottom, p.y + p.cy);
+                let left = std::cmp::max(moved_to.left, p.x());
+                let top = std::cmp::max(moved_to.top, p.y());
+                let right = std::cmp::min(moved_to.right, p.x() + p.w());
+                let bottom = std::cmp::min(moved_to.bottom, p.y() + p.h());
                 let area = (right - left) * (bottom - top);
                 if area == moved_to_area {
                     max_overlap_at = (i, area);
@@ -1065,17 +1061,21 @@ impl WindowManager {
                 .workspaces
                 .get(&(desktop_id, new_monitor_handle.0))
                 .unwrap();
-            let layout = &self.layouts.get(&new_monitor_handle.0).unwrap()[workspace.layout_idx]
-                .get_variants()[workspace.variant_idx];
-            let position = &layout.get_positions_at(workspace.managed_window_handles.len() - 1)
-                [workspace.managed_window_handles.len() - 1];
+            let layout =
+                &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
+            let position = &layout.get_internal_positions(
+                workspace.variant_idx,
+                workspace.managed_window_handles.len(),
+                self.settings.window_padding,
+                self.settings.edge_padding,
+            )[workspace.managed_window_handles.len() - 1];
             let _ = windows_api::set_window_pos(
                 foreground_window,
                 None,
-                position.x,
-                position.y,
-                position.cx,
-                position.cy,
+                position.x(),
+                position.y(),
+                position.w(),
+                position.h(),
                 SWP_NOZORDER,
             );
         }
@@ -1181,18 +1181,21 @@ impl WindowManager {
                     .workspaces
                     .get(&(original_desktop_id, new_monitor_handle.0))
                     .unwrap();
-                let layout = &self.layouts.get(&new_monitor_handle.0).unwrap()
-                    [workspace.layout_idx]
-                    .get_variants()[workspace.variant_idx];
-                let position =
-                    &layout.get_positions_at(workspace.managed_window_handles.len() - 1)[new_idx];
+                let layout =
+                    &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
+                let position = &layout.get_internal_positions(
+                    workspace.variant_idx,
+                    workspace.managed_window_handles.len(),
+                    self.settings.window_padding,
+                    self.settings.edge_padding,
+                )[new_idx];
                 let _ = windows_api::set_window_pos(
                     grabbed_window,
                     None,
-                    position.x,
-                    position.y,
-                    position.cx,
-                    position.cy,
+                    position.x(),
+                    position.y(),
+                    position.w(),
+                    position.h(),
                     SWP_NOZORDER,
                 );
             }
@@ -1232,19 +1235,21 @@ impl WindowManager {
                         .workspaces
                         .get(&(desktop_id, monitor_handle.0))
                         .unwrap();
-                    let layout = &self.layouts.get(&monitor_handle.0).unwrap()
-                        [workspace.layout_idx]
-                        .get_variants()[workspace.variant_idx];
-                    let position = &layout
-                        .get_positions_at(workspace.managed_window_handles.len() - 1)
-                        [workspace.managed_window_handles.len() - 1];
+                    let layout =
+                        &mut self.layouts.get_mut(&monitor_handle.0).unwrap()[workspace.layout_idx];
+                    let position = &layout.get_internal_positions(
+                        workspace.variant_idx,
+                        workspace.managed_window_handles.len(),
+                        self.settings.window_padding,
+                        self.settings.edge_padding,
+                    )[workspace.managed_window_handles.len() - 1];
                     let _ = windows_api::set_window_pos(
                         foreground_window,
                         None,
-                        position.x,
-                        position.y,
-                        position.cx,
-                        position.cy,
+                        position.x(),
+                        position.y(),
+                        position.w(),
+                        position.h(),
                         SWP_NOZORDER,
                     );
                 }
@@ -1363,26 +1368,21 @@ impl WindowManager {
             return;
         }
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];
-        let monitor_rect = layout.get_monitor_rect().to_owned();
-        let variant = &mut layout.get_variants_mut()[workspace.variant_idx];
-        while variant.positions_len() < workspace.managed_window_handles.len() {
-            variant.extend();
-            variant.update(
-                self.settings.window_padding,
-                self.settings.edge_padding,
-                &monitor_rect,
-            );
-        }
         let mut error_indices: Option<Vec<usize>> = None;
-        let positions = variant.get_positions_at(workspace.managed_window_handles.len() - 1);
+        let positions = layout.get_internal_positions(
+            workspace.variant_idx,
+            workspace.managed_window_handles.len(),
+            self.settings.window_padding,
+            self.settings.edge_padding,
+        );
         for (i, hwnd) in workspace.managed_window_handles.iter().enumerate() {
             match windows_api::set_window_pos(
                 *hwnd,
                 None,
-                positions[i].x,
-                positions[i].y,
-                positions[i].cx,
-                positions[i].cy,
+                positions[i].x(),
+                positions[i].y(),
+                positions[i].w(),
+                positions[i].h(),
                 SWP_NOZORDER,
             ) {
                 Ok(_) => continue,
@@ -1537,8 +1537,8 @@ impl WindowManager {
             as i32;
         let h = ((monitor_rect.h() as f64) * self.settings.floating_window_default_h_ratio).round()
             as i32;
-        let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.left;
-        let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.top;
+        let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.x();
+        let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.y();
         let _ = windows_api::set_window_pos(hwnd, None, x, y, w, h, SWP_NOZORDER);
     }
 

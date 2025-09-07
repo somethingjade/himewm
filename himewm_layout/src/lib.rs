@@ -23,31 +23,37 @@ pub enum SplitDirection {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum EndTilingBehaviour {
+pub enum EndBehaviourType {
     Directional {
         direction: Direction,
-        from_zones: Option<Vec<Zone>>,
-        zone_idx: usize,
+        from: Option<Vec<Position>>,
     },
     Repeating {
         splits: Vec<RepeatingSplit>,
-        zone_idx: usize,
     },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EndTilingBehaviour {
+    position_idx: usize,
+    behaviour: EndBehaviourType,
 }
 
 impl EndTilingBehaviour {
     pub fn default_directional() -> Self {
-        EndTilingBehaviour::Directional {
-            direction: Direction::Vertical,
-            from_zones: None,
-            zone_idx: 0,
+        Self {
+            position_idx: 0,
+            behaviour: EndBehaviourType::Directional {
+                direction: Direction::Vertical,
+                from: None,
+            },
         }
     }
 
     pub fn default_repeating() -> Self {
-        EndTilingBehaviour::Repeating {
-            splits: Vec::new(),
-            zone_idx: 0,
+        Self {
+            position_idx: 0,
+            behaviour: EndBehaviourType::Repeating { splits: Vec::new() },
         }
     }
 }
@@ -93,544 +99,291 @@ impl RepeatingSplit {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Zone {
-    pub left: i32,
-    pub top: i32,
-    pub right: i32,
-    pub bottom: i32,
-}
+pub struct Position(i32, i32, i32, i32);
 
-impl From<RECT> for Zone {
+impl From<RECT> for Position {
     fn from(value: RECT) -> Self {
-        Zone {
-            left: value.left,
-            top: value.top,
-            right: value.right,
-            bottom: value.bottom,
-        }
+        Self(
+            value.left,
+            value.top,
+            value.right - value.left,
+            value.bottom - value.top,
+        )
     }
 }
 
-impl Zone {
-    fn new(left: i32, top: i32, right: i32, bottom: i32) -> Self {
-        Zone {
-            left,
-            top,
-            right,
-            bottom,
-        }
+impl From<(i32, i32, i32, i32)> for Position {
+    fn from(value: (i32, i32, i32, i32)) -> Self {
+        Self(value.0, value.1, value.2, value.3)
+    }
+}
+
+impl Position {
+    pub fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self(x, y, w, h)
+    }
+
+    pub fn x(&self) -> i32 {
+        self.0
+    }
+
+    pub fn set_x(&mut self, val: i32) {
+        self.0 = val;
+    }
+
+    pub fn y(&self) -> i32 {
+        self.1
+    }
+
+    pub fn set_y(&mut self, val: i32) {
+        self.1 = val;
     }
 
     pub fn w(&self) -> i32 {
-        self.right - self.left
+        self.2
+    }
+
+    pub fn set_w(&mut self, val: i32) {
+        self.2 = val;
     }
 
     pub fn h(&self) -> i32 {
-        self.bottom - self.top
+        self.3
+    }
+
+    pub fn set_h(&mut self, val: i32) {
+        self.3 = val;
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Position {
-    pub x: i32,
-    pub y: i32,
-    pub cx: i32,
-    pub cy: i32,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Variant {
-    zones: Vec<Vec<Zone>>,
-    manual_zones_until: usize,
-    end_tiling_behaviour: EndTilingBehaviour,
+pub struct InternalVariant {
     positions: Vec<Vec<Position>>,
+    internal_positions: Vec<Vec<Position>>,
+    manual_positions_until: usize,
+    end_tiling_behaviour: EndTilingBehaviour,
 }
 
-impl Variant {
+impl InternalVariant {
     pub fn new(w: i32, h: i32) -> Self {
-        Variant {
-            zones: vec![vec![Zone::new(0, 0, w, h)]],
-            manual_zones_until: 1,
+        Self {
+            positions: vec![vec![Position::new(0, 0, w, h)]],
+            internal_positions: Vec::new(),
+            manual_positions_until: 1,
             end_tiling_behaviour: EndTilingBehaviour::default_directional(),
-            positions: Vec::new(),
         }
     }
 
-    pub fn get_zones(&self) -> &Vec<Vec<Zone>> {
-        &self.zones
+    pub fn get_positions(&self) -> &Vec<Vec<Position>> {
+        &self.positions
     }
 
-    pub fn get_zones_mut(&mut self) -> &mut Vec<Vec<Zone>> {
-        &mut self.zones
+    pub fn get_positions_mut(&mut self) -> &mut Vec<Vec<Position>> {
+        &mut self.positions
     }
 
-    pub fn delete_zones(&mut self, i: usize) {
-        self.zones.remove(i);
-        self.manual_zones_until -= 1;
-    }
-
-    pub fn manual_zones_until(&self) -> usize {
-        self.manual_zones_until
-    }
-
-    pub fn get_positions_at(&self, i: usize) -> &Vec<Position> {
-        &self.positions[i]
-    }
-
-    pub fn positions_len(&self) -> usize {
-        self.positions.len()
-    }
-
-    pub fn update_from_zones(&mut self) {
-        match &mut self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction: _,
-                from_zones,
-                zone_idx: _,
-            } if matches!(from_zones, None)
-                && self.zones[self.zones.len() - 1].len() < self.zones.len() =>
-            {
-                *from_zones = self.zones.pop();
-                self.manual_zones_until -= 1;
-            }
-            _ => (),
-        }
-    }
-
-    pub fn using_from_zones(&self) -> bool {
-        match &self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction: _,
-                from_zones,
-                zone_idx: _,
-            } => match from_zones {
-                Some(_) => return true,
-                None => return false,
-            },
-            EndTilingBehaviour::Repeating {
-                splits: _,
-                zone_idx: _,
-            } => return false,
-        }
-    }
-
-    pub fn update(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
-        self.update_from_zones();
-        self.positions = Vec::new();
+    pub fn update(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Position) {
+        self.internal_positions = Vec::new();
         let mut len = 0;
-        for zones in &self.zones {
-            self.positions.push(Vec::new());
+        for positions in &self.positions {
+            self.internal_positions.push(Vec::new());
             len += 1;
-            for zone in zones {
-                let mut position = Position {
-                    x: zone.left - 7 + window_padding,
-                    y: zone.top + window_padding,
-                    cx: zone.w() + 14 - 2 * window_padding,
-                    cy: zone.h() + 7 - 2 * window_padding,
-                };
-                if zone.left == monitor_rect.left {
-                    position.x = position.x - window_padding + edge_padding;
-                    position.cx = position.cx + window_padding - edge_padding;
+            for position in positions {
+                let mut internal_position = Position(
+                    position.0 - 7 + window_padding,
+                    position.1 + window_padding,
+                    position.2 + 14 - 2 * window_padding,
+                    position.3 + 7 - 2 * window_padding,
+                );
+                if position.0 == monitor_rect.0 {
+                    internal_position.0 = internal_position.0 - window_padding + edge_padding;
+                    internal_position.2 = internal_position.2 + window_padding - edge_padding;
                 }
-                if zone.top == monitor_rect.top {
-                    position.y = position.y - window_padding + edge_padding;
-                    position.cy = position.cy + window_padding - edge_padding;
+                if position.1 == monitor_rect.1 {
+                    internal_position.1 = internal_position.1 - window_padding + edge_padding;
+                    internal_position.3 = internal_position.3 + window_padding - edge_padding;
                 }
-                if zone.right == monitor_rect.right {
-                    position.cx = position.cx + window_padding - edge_padding;
+                if position.0 + position.2 == monitor_rect.0 + monitor_rect.2 {
+                    internal_position.2 = internal_position.2 + window_padding - edge_padding;
                 }
-                if zone.bottom == monitor_rect.bottom {
-                    position.cy = position.cy + window_padding - edge_padding;
+                if position.1 + position.3 == monitor_rect.1 + monitor_rect.3 {
+                    internal_position.3 = internal_position.3 + window_padding - edge_padding;
                 }
-                self.positions[len - 1].push(position);
+                self.internal_positions[len - 1].push(internal_position);
             }
         }
-    }
-
-    pub fn get_end_tiling_behaviour(&self) -> &EndTilingBehaviour {
-        &self.end_tiling_behaviour
-    }
-
-    pub fn set_end_tiling_behaviour(&mut self, behaviour: EndTilingBehaviour) {
-        self.end_tiling_behaviour = behaviour;
-    }
-
-    pub fn get_end_zone_idx(&self) -> usize {
-        match self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction: _,
-                from_zones: _,
-                zone_idx,
-            } => return zone_idx,
-            EndTilingBehaviour::Repeating {
-                splits: _,
-                zone_idx,
-            } => return zone_idx,
-        }
-    }
-
-    pub fn set_end_zone_idx(&mut self, i: usize) {
-        match &mut self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction: _,
-                from_zones: _,
-                zone_idx,
-            } => {
-                *zone_idx = i;
-            }
-            EndTilingBehaviour::Repeating {
-                splits: _,
-                zone_idx,
-            } => {
-                *zone_idx = i;
-            }
-        }
-    }
-
-    pub fn get_end_tiling_direction(&self) -> Option<Direction> {
-        match &self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction,
-                from_zones: _,
-                zone_idx: _,
-            } => return Some(direction.to_owned()),
-            EndTilingBehaviour::Repeating {
-                splits: _,
-                zone_idx: _,
-            } => return None,
-        }
-    }
-
-    pub fn set_end_tiling_direction(&mut self, new_direction: Direction) {
-        match &mut self.end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction,
-                from_zones: _,
-                zone_idx: _,
-            } => {
-                *direction = new_direction;
-            }
-            EndTilingBehaviour::Repeating {
-                splits: _,
-                zone_idx: _,
-            } => return,
-        }
-    }
-
-    pub fn add_repeating_split(
-        &mut self,
-        direction: Direction,
-        split_ratio: f64,
-        split_idx_offset: usize,
-        swap: bool,
-    ) -> Option<&RepeatingSplit> {
-        if let EndTilingBehaviour::Repeating {
-            splits,
-            zone_idx: _,
-        } = &mut self.end_tiling_behaviour
-        {
-            let split = RepeatingSplit::new(direction, split_ratio, split_idx_offset, swap);
-            splits.push(split);
-            let ret = &splits[splits.len() - 1];
-            return Some(ret);
-        }
-        return None;
-    }
-
-    pub fn delete_repeating_split(&mut self, idx: usize) {
-        if let EndTilingBehaviour::Repeating {
-            splits,
-            zone_idx: _,
-        } = &mut self.end_tiling_behaviour
-        {
-            splits.remove(idx);
-            let max_offset = splits.len();
-            for split in splits {
-                if split.split_idx_offset > max_offset {
-                    split.split_idx_offset = max_offset;
-                }
-            }
-        }
-    }
-
-    pub fn set_repeating_split_direction(&mut self, idx: usize, direction: Direction) {
-        if let EndTilingBehaviour::Repeating {
-            splits,
-            zone_idx: _,
-        } = &mut self.end_tiling_behaviour
-        {
-            splits[idx].direction = direction;
-        }
-    }
-
-    pub fn set_repeating_split_ratio(&mut self, idx: usize, val: f64) {
-        if let EndTilingBehaviour::Repeating {
-            splits,
-            zone_idx: _,
-        } = &mut self.end_tiling_behaviour
-        {
-            splits[idx].split_ratio = val;
-        }
-    }
-
-    pub fn set_repeating_split_idx_offset(&mut self, idx: usize, val: usize) {
-        if let EndTilingBehaviour::Repeating {
-            splits,
-            zone_idx: _,
-        } = &mut self.end_tiling_behaviour
-        {
-            splits[idx].split_idx_offset = val;
-        }
-    }
-
-    pub fn set_repeating_split_swap(&mut self, idx: usize, val: bool) {
-        if let EndTilingBehaviour::Repeating {
-            splits,
-            zone_idx: _,
-        } = &mut self.end_tiling_behaviour
-        {
-            splits[idx].swap = val;
-        }
-    }
-
-    pub fn new_zone_vec(&mut self, w: i32, h: i32) {
-        self.zones.push(vec![Zone::new(0, 0, w, h)]);
-        self.manual_zones_until += 1;
-    }
-
-    pub fn clone_zone_vec(&mut self, i: usize) {
-        self.zones.push(self.zones[i].clone());
-        self.manual_zones_until += 1;
     }
 
     pub fn split(&mut self, i: usize, j: usize, direction: SplitDirection) {
-        let zone = &mut self.zones[i][j];
-        let new_zone;
+        let position = &mut self.positions[i][j];
+        let new_position;
         match direction {
-            SplitDirection::Horizontal(at) => {
-                if at - zone.left < zone.w() / 2 {
-                    new_zone = Zone::new(zone.left, zone.top, at, zone.bottom);
-                    zone.left = at;
+            SplitDirection::Horizontal(w) => {
+                if w < position.2 / 2 {
+                    new_position = Position::new(position.0, position.1, w, position.3);
+                    position.0 += w;
                 } else {
-                    new_zone = Zone::new(at, zone.top, zone.right, zone.bottom);
-                    zone.right = at;
+                    new_position = Position::new(position.0 + w, position.1, w, position.3);
                 }
+                position.2 -= w;
             }
-            SplitDirection::Vertical(at) => {
-                if at - zone.top < zone.h() / 2 {
-                    new_zone = Zone::new(zone.left, zone.top, zone.right, at);
-                    zone.top = at;
+            SplitDirection::Vertical(h) => {
+                if h < position.3 / 2 {
+                    new_position = Position::new(position.0, position.1, position.2, h);
+                    position.1 += h;
                 } else {
-                    new_zone = Zone::new(zone.left, at, zone.right, zone.bottom);
-                    zone.bottom = at;
+                    new_position = Position::new(position.0, position.1 + h, position.2, h);
                 }
+                position.3 -= h;
             }
         }
-        self.set_end_zone_idx(self.zones[i].len());
-        self.zones[i].push(new_zone);
-    }
-
-    pub fn can_merge_zones(&self, i: usize, j: usize, k: usize) -> bool {
-        if j == k {
-            return false;
-        }
-        let first_zone = &self.zones[i][j];
-        let second_zone = &self.zones[i][k];
-        return (first_zone.left == second_zone.left
-            && first_zone.right == second_zone.right
-            && (first_zone.bottom == second_zone.top || first_zone.top == second_zone.bottom))
-            || (first_zone.top == second_zone.top
-                && first_zone.bottom == second_zone.bottom
-                && (first_zone.right == second_zone.left || first_zone.left == second_zone.right));
-    }
-
-    pub fn merge_zones(&mut self, i: usize, j: usize, k: usize) {
-        if j == k {
-            return;
-        }
-        let first_idx = std::cmp::min(j, k);
-        let second_idx = std::cmp::max(j, k);
-        if self.zones[i][first_idx].left == self.zones[i][second_idx].left
-            && self.zones[i][first_idx].right == self.zones[i][second_idx].right
-        {
-            if self.zones[i][first_idx].bottom == self.zones[i][second_idx].top {
-                self.zones[i][first_idx].bottom = self.zones[i][second_idx].bottom;
-            } else if self.zones[i][first_idx].top == self.zones[i][second_idx].bottom {
-                self.zones[i][first_idx].top = self.zones[i][second_idx].top;
-            } else {
-                return;
-            }
-        } else if self.zones[i][first_idx].top == self.zones[i][second_idx].top
-            && self.zones[i][first_idx].bottom == self.zones[i][second_idx].bottom
-        {
-            if self.zones[i][first_idx].right == self.zones[i][second_idx].left {
-                self.zones[i][first_idx].right = self.zones[i][second_idx].right;
-            } else if self.zones[i][first_idx].left == self.zones[i][second_idx].right {
-                self.zones[i][first_idx].left = self.zones[i][second_idx].left;
-            } else {
-                return;
-            }
-        } else {
-            return;
-        }
-        self.zones[i].remove(second_idx);
-    }
-
-    pub fn merge_and_split_zones(
-        &mut self,
-        i: usize,
-        j: usize,
-        k: usize,
-        direction: SplitDirection,
-    ) {
-        let first_idx = std::cmp::min(j, k);
-        let second_idx = std::cmp::max(j, k);
-        self.merge_zones(i, j, k);
-        self.split(i, first_idx, direction);
-        let zone = self.zones[i].pop().unwrap();
-        self.zones[i].insert(second_idx, zone);
+        self.positions[i].push(new_position);
     }
 
     pub fn extend(&mut self) {
-        let end_zone_idx = self.get_end_zone_idx();
-        let end_tiling_behaviour = self.end_tiling_behaviour.clone();
-        match end_tiling_behaviour {
-            EndTilingBehaviour::Directional {
-                direction,
-                from_zones,
-                zone_idx,
-            } => {
-                let used_from_zones = match &from_zones {
-                    Some(zones) => {
-                        self.zones.push(zones.clone());
+        let position_idx = self.end_tiling_behaviour.position_idx;
+        match self.end_tiling_behaviour.behaviour.to_owned() {
+            EndBehaviourType::Directional { direction, from } => {
+                let used_from = match &from {
+                    Some(positions) => {
+                        self.positions.push(positions.clone());
                         true
                     }
                     None => {
-                        self.zones
-                            .push(self.zones[self.manual_zones_until - 1].clone());
+                        self.positions
+                            .push(self.positions[self.manual_positions_until - 1].clone());
                         false
                     }
                 };
                 match direction {
                     Direction::Horizontal => {
-                        let offset = (self.zones[self.zones.len() - 1][zone_idx].w())
-                            / (self.zones.len() - self.zones[self.zones.len() - 1].len() + 1)
-                                as i32;
-                        while self.zones[self.zones.len() - 1].len() < self.zones.len() {
+                        let w = (self.positions[self.positions.len() - 1][position_idx].2)
+                            / (self.positions.len()
+                                - self.positions[self.positions.len() - 1].len()
+                                + 1) as i32;
+                        while self.positions[self.positions.len() - 1].len() < self.positions.len()
+                        {
                             self.split(
-                                self.zones.len() - 1,
-                                zone_idx,
-                                SplitDirection::Horizontal(
-                                    self.zones[self.zones.len() - 1][zone_idx].left + offset,
-                                ),
+                                self.positions.len() - 1,
+                                position_idx,
+                                SplitDirection::Horizontal(w),
                             );
-                            self.set_end_zone_idx(end_zone_idx);
                         }
                     }
                     Direction::Vertical => {
-                        let offset = (self.zones[self.zones.len() - 1][zone_idx].h())
-                            / (self.zones.len() - self.zones[self.zones.len() - 1].len() + 1)
-                                as i32;
-                        while self.zones[self.zones.len() - 1].len() < self.zones.len() {
+                        let h = (self.positions[self.positions.len() - 1][position_idx].h())
+                            / (self.positions.len()
+                                - self.positions[self.positions.len() - 1].len()
+                                + 1) as i32;
+                        while self.positions[self.positions.len() - 1].len() < self.positions.len()
+                        {
                             self.split(
-                                self.zones.len() - 1,
-                                zone_idx,
-                                SplitDirection::Vertical(
-                                    self.zones[self.zones.len() - 1][zone_idx].top + offset,
-                                ),
+                                self.positions.len() - 1,
+                                position_idx,
+                                SplitDirection::Vertical(h),
                             );
-                            self.set_end_zone_idx(end_zone_idx);
                         }
                     }
                 }
-                let last_idx = self.zones.len() - 1;
-                if used_from_zones {
-                    for i in (from_zones.unwrap().len()..(self.zones.len() - 1)).rev() {
-                        self.zones[last_idx].swap(zone_idx, i);
+                let last_idx = self.positions.len() - 1;
+                if used_from {
+                    for i in (from.unwrap().len()..(self.positions.len() - 1)).rev() {
+                        self.positions[last_idx].swap(position_idx, i);
                     }
                 } else {
-                    for i in (self.manual_zones_until..(self.zones.len() - 1)).rev() {
-                        self.zones[last_idx].swap(zone_idx, i);
+                    for i in (self.manual_positions_until..(self.positions.len() - 1)).rev() {
+                        self.positions[last_idx].swap(position_idx, i);
                     }
                 }
             }
-            EndTilingBehaviour::Repeating { splits, zone_idx } => {
+            EndBehaviourType::Repeating { splits } => {
                 let repeating_split_idx =
-                    (self.zones.len() - self.manual_zones_until) % splits.len();
+                    (self.positions.len() - self.manual_positions_until) % splits.len();
                 let split = &splits[repeating_split_idx];
-                let split_idx = if self.zones.len() == self.manual_zones_until {
-                    zone_idx
+                let split_idx = if self.positions.len() == self.manual_positions_until {
+                    position_idx
                 } else if repeating_split_idx == 0 {
-                    self.zones.len() - 1 - splits.len() + split.split_idx_offset
+                    self.positions.len() - 1 - splits.len() + split.split_idx_offset
                 } else {
-                    self.zones.len() - 1 - repeating_split_idx + split.split_idx_offset
+                    self.positions.len() - 1 - repeating_split_idx + split.split_idx_offset
                 };
-                self.zones.push(self.zones[self.zones.len() - 1].clone());
-                let at;
+                self.positions
+                    .push(self.positions[self.positions.len() - 1].clone());
                 match split.direction {
                     Direction::Horizontal => {
-                        at = self.zones[self.zones.len() - 1][split_idx].left
-                            + (split.split_ratio
-                                * (self.zones[self.zones.len() - 1][split_idx].w() as f64))
-                                .round() as i32;
+                        let w = (split.split_ratio
+                            * (self.positions[self.positions.len() - 1][split_idx].2 as f64))
+                            .round() as i32;
                         self.split(
-                            self.zones.len() - 1,
+                            self.positions.len() - 1,
                             split_idx,
-                            SplitDirection::Horizontal(at),
+                            SplitDirection::Horizontal(w),
                         );
                     }
                     Direction::Vertical => {
-                        at = self.zones[self.zones.len() - 1][split_idx].top
-                            + (split.split_ratio
-                                * (self.zones[self.zones.len() - 1][split_idx].h() as f64))
-                                .round() as i32;
+                        let h = (split.split_ratio
+                            * (self.positions[self.positions.len() - 1][split_idx].3 as f64))
+                            .round() as i32;
                         self.split(
-                            self.zones.len() - 1,
+                            self.positions.len() - 1,
                             split_idx,
-                            SplitDirection::Vertical(at),
+                            SplitDirection::Vertical(h),
                         );
                     }
                 }
-                self.set_end_zone_idx(end_zone_idx);
                 if split.swap {
-                    let last_idx = self.zones.len() - 1;
-                    let swap_idx = self.zones[last_idx].len() - 1;
-                    self.zones[last_idx].swap(split_idx, swap_idx);
+                    let last_idx = self.positions.len() - 1;
+                    let swap_idx = self.positions[last_idx].len() - 1;
+                    self.positions[last_idx].swap(split_idx, swap_idx);
                 }
             }
         }
+    }
+
+    pub fn get_internal_positions(
+        &mut self,
+        n: usize,
+        window_padding: i32,
+        edge_padding: i32,
+        monitor_rect: &Position,
+    ) -> &Vec<Position> {
+        while self.positions.len() < n {
+            self.extend();
+        }
+        self.update(window_padding, edge_padding, monitor_rect);
+        return &self.internal_positions[n - 1];
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Layout {
-    monitor_rect: Zone,
-    variants: Vec<Variant>,
+    monitor_rect: Position,
+    variants: Vec<InternalVariant>,
     default_variant_idx: usize,
 }
 
 impl Layout {
     pub fn new(w: i32, h: i32) -> Self {
         Layout {
-            monitor_rect: Zone::new(0, 0, w, h),
-            variants: vec![Variant::new(w, h)],
+            monitor_rect: Position::new(0, 0, w, h),
+            variants: vec![InternalVariant::new(w, h)],
             default_variant_idx: 0,
         }
     }
 
-    pub fn get_monitor_rect(&self) -> &Zone {
+    pub fn get_monitor_rect(&self) -> &Position {
         &self.monitor_rect
     }
 
-    pub fn set_monitor_rect(&mut self, zone: Zone) {
-        self.monitor_rect = zone;
+    pub fn set_monitor_rect(&mut self, position: Position) {
+        self.monitor_rect = position;
     }
 
-    pub fn get_variants(&self) -> &Vec<Variant> {
+    pub fn get_variants(&self) -> &Vec<InternalVariant> {
         &self.variants
     }
 
-    pub fn get_variants_mut(&mut self) -> &mut Vec<Variant> {
+    pub fn get_variants_mut(&mut self) -> &mut Vec<InternalVariant> {
         &mut self.variants
     }
 
@@ -646,41 +399,50 @@ impl Layout {
         self.default_variant_idx = i;
     }
 
-    pub fn update_all(&mut self, window_padding: i32, edge_padding: i32, monitor_rect: &Zone) {
+    pub fn update_all(&mut self, window_padding: i32, edge_padding: i32) {
         for variant in self.variants.iter_mut() {
-            variant.update(window_padding, edge_padding, monitor_rect);
+            variant.update(window_padding, edge_padding, &self.monitor_rect);
         }
     }
 
-    pub fn new_variant(&mut self) {
-        self.variants.push(Variant::new(
-            self.monitor_rect.right,
-            self.monitor_rect.bottom,
-        ));
+    pub fn get_internal_positions(
+        &mut self,
+        variant_idx: usize,
+        n: usize,
+        window_padding: i32,
+        edge_padding: i32,
+    ) -> &Vec<Position> {
+        self.variants[variant_idx].get_internal_positions(
+            n,
+            window_padding,
+            edge_padding,
+            &self.monitor_rect,
+        )
     }
+}
 
-    pub fn clone_variant(&mut self, idx: usize) {
-        self.variants.push(self.variants[idx].clone());
-    }
-
-    pub fn swap_variants(&mut self, i: usize, j: usize) {
-        if i == j {
-            return;
-        }
-        if self.default_variant_idx == i {
-            self.default_variant_idx = j;
-        } else if self.default_variant_idx == j {
-            self.default_variant_idx = i;
-        }
-        self.variants.swap(i, j);
-    }
-
-    pub fn delete_variant(&mut self, idx: usize) {
-        self.variants.remove(idx);
-        if idx == self.default_variant_idx {
-            self.default_variant_idx = 0;
-        } else if idx < self.default_variant_idx {
-            self.default_variant_idx -= 1;
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn extending() {
+        let mut layout = Layout::new(1920, 1200);
+        let variant = &mut layout.variants[0];
+        variant.end_tiling_behaviour = EndTilingBehaviour {
+            position_idx: 1,
+            behaviour: EndBehaviourType::Directional {
+                direction: Direction::Vertical,
+                from: None,
+            },
+        };
+        variant
+            .positions
+            .push(vec![Position(0, 0, 960, 1200), Position(960, 0, 960, 1200)]);
+        variant.manual_positions_until = 2;
+        variant.extend();
+        let last_positions = &variant.positions[variant.positions.len() - 1];
+        assert_eq!(last_positions[0], Position(0, 0, 960, 1200));
+        assert_eq!(last_positions[1], Position(960, 0, 960, 600));
+        assert_eq!(last_positions[2], Position(960, 600, 960, 600));
     }
 }
