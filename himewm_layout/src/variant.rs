@@ -67,12 +67,7 @@ pub struct RepeatingSplit {
 }
 
 impl RepeatingSplit {
-    pub fn new(
-        direction: Direction,
-        ratio: f64,
-        offset: usize,
-        swap: bool,
-    ) -> Self {
+    pub fn new(direction: Direction, ratio: f64, offset: usize, swap: bool) -> Self {
         RepeatingSplit {
             direction,
             ratio,
@@ -98,7 +93,7 @@ impl From<user_layout::UserVariant> for Variant {
             positions: value.positions,
             internal_positions: Vec::new(),
             manual_positions_until: positions_len,
-            end_behaviour: value.end_behaviour
+            end_behaviour: value.end_behaviour,
         };
     }
 }

@@ -1,26 +1,27 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{
-    value::RawValue
-};
+use serde_json::value::RawValue;
 
 pub enum VariantsContainerReturn<'a, T> {
     Container(&'a VariantsContainer<T>),
-    Variant(&'a T)
+    Variant(&'a T),
 }
 
 pub enum VariantsContainerReturnMut<'a, T> {
     Container(&'a mut VariantsContainer<T>),
-    Variant(&'a mut T)
+    Variant(&'a mut T),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum VariantsContainer<T> {
     Container(Vec<VariantsContainer<T>>),
-    Variants(Vec<T>)
+    Variants(Vec<T>),
 }
 
 impl<T> VariantsContainer<T> {
-    pub fn from_raw_value(raw: &RawValue) -> serde_json::Result<Self> where for<'a> T: Deserialize<'a> {
+    pub fn from_raw_value(raw: &RawValue) -> serde_json::Result<Self>
+    where
+        for<'a> T: Deserialize<'a>,
+    {
         let raw_str = raw.get();
         let normalized_string = raw_str.replace([' ', '\n', '\t'], "");
         let data = normalized_string.as_bytes();
@@ -28,37 +29,33 @@ impl<T> VariantsContainer<T> {
         let mut inner_array_count = None;
         for i in 0..data.len() {
             match data[i] {
-                b'[' if i + 1 < data.len() => {
-                    match inner_array_count {
-                        Some(count) => {
-                            inner_array_count = Some(count + 1);
-                            input_string.push('[');
-                        }
-                        None => {
-                            if data[i + 1] == b'[' {
-                                input_string += r#"{"Container":["#;
-                            } else {
-                                input_string += r#"{"Variants":["#;
-                                inner_array_count = Some(0);
-                            }
-                        },
+                b'[' if i + 1 < data.len() => match inner_array_count {
+                    Some(count) => {
+                        inner_array_count = Some(count + 1);
+                        input_string.push('[');
                     }
-                }
-                b']' => {
-                    match inner_array_count {
-                        Some(count) if count > 0 => {
-                            input_string.push(']');
-                            inner_array_count = Some(count - 1);
+                    None => {
+                        if data[i + 1] == b'[' {
+                            input_string += r#"{"Container":["#;
+                        } else {
+                            input_string += r#"{"Variants":["#;
+                            inner_array_count = Some(0);
                         }
-                        _ => {
-                            input_string += "]}";
-                            inner_array_count = None;
-                        },
                     }
-                }
+                },
+                b']' => match inner_array_count {
+                    Some(count) if count > 0 => {
+                        input_string.push(']');
+                        inner_array_count = Some(count - 1);
+                    }
+                    _ => {
+                        input_string += "]}";
+                        inner_array_count = None;
+                    }
+                },
                 _ => {
                     input_string.push(data[i] as char);
-                },
+                }
             }
         }
         return serde_json::from_str(&input_string);
@@ -105,7 +102,9 @@ impl<T> VariantsContainer<T> {
         let mut current = VariantsContainerReturnMut::Container(self);
         for i in idx {
             let current_layer = match current {
-                VariantsContainerReturnMut::Container(container) if container.len() > 0 => container,
+                VariantsContainerReturnMut::Container(container) if container.len() > 0 => {
+                    container
+                }
                 _ => {
                     break;
                 }
@@ -136,13 +135,13 @@ impl<T> VariantsContainer<T> {
                     match current_layer.get(&inner_idx) {
                         VariantsContainerReturn::Container(next_container) => {
                             current_layer = next_container;
-                        },
+                        }
                         VariantsContainerReturn::Variant(variant) => {
                             return variant;
-                        },
+                        }
                     }
                 }
-            },
+            }
             VariantsContainerReturn::Variant(variant) => {
                 return variant;
             }
@@ -158,13 +157,13 @@ impl<T> VariantsContainer<T> {
                     match current_layer.get_mut(&inner_idx) {
                         VariantsContainerReturnMut::Container(next_container) => {
                             current_layer = next_container;
-                        },
+                        }
                         VariantsContainerReturnMut::Variant(variant) => {
                             return variant;
-                        },
+                        }
                     }
                 }
-            },
+            }
             VariantsContainerReturnMut::Variant(variant) => {
                 return variant;
             }
@@ -195,7 +194,9 @@ impl<T: Clone> VariantsContainer<T> {
         let mut ret = match self {
             VariantsContainer::Container(_) => VariantsContainer::Container(Vec::new()),
             VariantsContainer::Variants(inner) => {
-                return VariantsContainer::Variants(inner.iter().map(|variant| cb(variant.to_owned())).collect());
+                return VariantsContainer::Variants(
+                    inner.iter().map(|variant| cb(variant.to_owned())).collect(),
+                );
             }
         };
         let mut stack = vec![vec![]];
@@ -204,31 +205,36 @@ impl<T: Clone> VariantsContainer<T> {
             if let VariantsContainerReturn::Container(container) = self.get(&current_idx) {
                 match container {
                     VariantsContainer::Container(inner) => {
-                        if let VariantsContainerReturnMut::Container(ret_container) = ret.get_mut(&current_idx) {
+                        if let VariantsContainerReturnMut::Container(ret_container) =
+                            ret.get_mut(&current_idx)
+                        {
                             if let VariantsContainer::Container(ret_inner) = ret_container {
                                 for i in 0..inner.len() {
                                     match inner[i] {
                                         VariantsContainer::Container(_) => {
-                                            ret_inner.push(VariantsContainer::Container(Vec::new()));
-                                        },
+                                            ret_inner
+                                                .push(VariantsContainer::Container(Vec::new()));
+                                        }
                                         VariantsContainer::Variants(_) => {
                                             ret_inner.push(VariantsContainer::Variants(Vec::new()));
-                                        },
+                                        }
                                     }
                                     stack.push([current_idx.as_slice(), &[i]].concat());
                                 }
                             }
                         }
-                    },
+                    }
                     VariantsContainer::Variants(inner) => {
-                        if let VariantsContainerReturnMut::Container(ret_container) = ret.get_mut(&current_idx) {
+                        if let VariantsContainerReturnMut::Container(ret_container) =
+                            ret.get_mut(&current_idx)
+                        {
                             if let VariantsContainer::Variants(ret_inner) = ret_container {
                                 for variant in inner {
                                     ret_inner.push(cb(variant.to_owned()));
                                 }
                             }
                         }
-                    },
+                    }
                 }
             }
         }

@@ -634,7 +634,8 @@ impl WindowManager {
                             self.settings.default_layout_idx,
                             self.layouts.get(&new_monitor_handle.0).unwrap()
                                 [self.settings.default_layout_idx]
-                                .default_variant_idx().to_owned(),
+                                .default_variant_idx()
+                                .to_owned(),
                         ),
                     );
                     window_info.monitor_handle = new_monitor_handle;
@@ -830,8 +831,13 @@ impl WindowManager {
         while workspace.variant_idx.len() <= idx {
             workspace.variant_idx.push(0);
         }
-        let variants_len = match self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].get_variants().get(&workspace.variant_idx[0..idx]) {
-            himewm_layout::variants_container::VariantsContainerReturn::Container(container) => container.len(),
+        let variants_len = match self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx]
+            .get_variants()
+            .get(&workspace.variant_idx[0..idx])
+        {
+            himewm_layout::variants_container::VariantsContainerReturn::Container(container) => {
+                container.len()
+            }
             himewm_layout::variants_container::VariantsContainerReturn::Variant(_) => return,
         };
         if variants_len == 1 {
@@ -904,7 +910,9 @@ impl WindowManager {
                 }
             }
         }
-        workspace.variant_idx = layouts[workspace.layout_idx].default_variant_idx().to_owned();
+        workspace.variant_idx = layouts[workspace.layout_idx]
+            .default_variant_idx()
+            .to_owned();
         self.update_workspace(desktop_id, monitor_handle);
     }
 
@@ -1055,7 +1063,8 @@ impl WindowManager {
                         self.settings.default_layout_idx,
                         self.layouts.get(&new_monitor_handle.0).unwrap()
                             [self.settings.default_layout_idx]
-                            .default_variant_idx().to_owned(),
+                            .default_variant_idx()
+                            .to_owned(),
                     ),
                 );
                 let window_info_mut = self.window_info.get_mut(&foreground_window.0).unwrap();
@@ -1274,12 +1283,7 @@ impl WindowManager {
             ]));
             match self.get_window_rule(foreground_window, &filter) {
                 Some(rule) => match rule {
-                    window_rules::Rule::FloatingPosition(window_rules::Position {
-                        x,
-                        y,
-                        w,
-                        h,
-                    }) => {
+                    window_rules::Rule::FloatingPosition(window_rules::Position { x, y, w, h }) => {
                         let _ = windows_api::set_window_pos(
                             foreground_window,
                             None,
@@ -1571,7 +1575,8 @@ impl WindowManager {
                         self.settings.default_layout_idx,
                         self.layouts.get(&window_info.monitor_handle.0).unwrap()
                             [self.settings.default_layout_idx]
-                            .default_variant_idx().to_owned(),
+                            .default_variant_idx()
+                            .to_owned(),
                     ),
                 );
                 window_info.idx = 0;
@@ -1628,7 +1633,8 @@ impl WindowManager {
                             self.settings.default_layout_idx,
                             self.layouts.get(&window_info.monitor_handle.0).unwrap()
                                 [self.settings.default_layout_idx]
-                                .default_variant_idx().to_owned(),
+                                .default_variant_idx()
+                                .to_owned(),
                         ),
                     );
                 }

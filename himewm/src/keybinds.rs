@@ -49,15 +49,21 @@ impl Default for UserKeybinds {
             refresh_workspace: "alt r".to_owned(),
             restart_himewm: "alt shift r".to_owned(),
             variant_keybinds: std::collections::HashMap::from([
-                (0, UserVariantKeybind {
-                    previous: "alt h".to_owned(),
-                    next: "alt l".to_owned(),
-                }),
-                (1, UserVariantKeybind {
-                    previous: "alt shift h".to_owned(),
-                    next: "alt shift l".to_owned(),
-                })
-            ])
+                (
+                    0,
+                    UserVariantKeybind {
+                        previous: "alt h".to_owned(),
+                        next: "alt l".to_owned(),
+                    },
+                ),
+                (
+                    1,
+                    UserVariantKeybind {
+                        previous: "alt shift h".to_owned(),
+                        next: "alt shift l".to_owned(),
+                    },
+                ),
+            ]),
         }
     }
 }
@@ -120,7 +126,7 @@ impl TryFrom<&String> for Keybind {
 
 struct VariantKeybind {
     previous: Keybind,
-    next: Keybind
+    next: Keybind,
 }
 
 impl TryFrom<&UserVariantKeybind> for VariantKeybind {
@@ -129,10 +135,7 @@ impl TryFrom<&UserVariantKeybind> for VariantKeybind {
     fn try_from(value: &UserVariantKeybind) -> Result<Self, Self::Error> {
         let previous = Keybind::try_from(&value.previous)?;
         let next = Keybind::try_from(&value.next)?;
-        return Ok(Self {
-            previous,
-            next,
-        })
+        return Ok(Self { previous, next });
     }
 }
 
@@ -153,7 +156,7 @@ pub struct Keybinds {
     toggle_workspace: Result<Keybind, &'static str>,
     refresh_workspace: Result<Keybind, &'static str>,
     restart_himewm: Result<Keybind, &'static str>,
-    variant_keybinds: std::collections::HashMap<usize, VariantKeybind>
+    variant_keybinds: std::collections::HashMap<usize, VariantKeybind>,
 }
 
 impl From<&UserKeybinds> for Keybinds {
@@ -181,7 +184,7 @@ impl From<&UserKeybinds> for Keybinds {
             toggle_workspace: Keybind::try_from(&value.toggle_workspace),
             refresh_workspace: Keybind::try_from(&value.refresh_workspace),
             restart_himewm: Keybind::try_from(&value.restart_himewm),
-            variant_keybinds
+            variant_keybinds,
         };
     }
 }
@@ -318,13 +321,13 @@ pub fn register_hotkeys(keybinds: Keybinds) {
     for (key, variant_keybind) in keybinds.variant_keybinds {
         let _ = windows_api::register_hot_key(
             None,
-            2*(wm_messages::hotkey_identifiers::VARIANT_START + key) as i32,
+            2 * (wm_messages::hotkey_identifiers::VARIANT_START + key) as i32,
             variant_keybind.previous.modifiers,
             variant_keybind.previous.key,
         );
         let _ = windows_api::register_hot_key(
             None,
-            2*(wm_messages::hotkey_identifiers::VARIANT_START + key) as i32 + 1,
+            2 * (wm_messages::hotkey_identifiers::VARIANT_START + key) as i32 + 1,
             variant_keybind.next.modifiers,
             variant_keybind.next.key,
         );

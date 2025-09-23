@@ -1,8 +1,5 @@
 use crate::windows_api;
-use himewm_layout::{
-    layout::*,
-    position::*
-};
+use himewm_layout::{layout::*, position::*};
 use windows::{
     core::PSTR,
     Win32::{Foundation::*, Graphics::Gdi::*, System::Threading::*, UI::WindowsAndMessaging::*},

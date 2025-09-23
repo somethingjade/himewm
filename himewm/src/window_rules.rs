@@ -90,9 +90,7 @@ pub fn get_internal_window_rules(
                 Some(i) => Rule::LayoutIdx(*i),
                 None => continue,
             },
-            UserRule::StartFloating(set_position) => {
-                Rule::StartFloating(set_position.to_owned())
-            }
+            UserRule::StartFloating(set_position) => Rule::StartFloating(set_position.to_owned()),
             UserRule::FloatingPosition(position) => Rule::FloatingPosition(position.to_owned()),
         };
         let internal_window_rule = InternalWindowRule {

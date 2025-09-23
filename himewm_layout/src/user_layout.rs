@@ -1,7 +1,4 @@
-use crate::{
-    position,
-    variant
-};
+use crate::{position, variant};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 
@@ -11,7 +8,7 @@ pub struct UserLayout<'a> {
     pub h: i32,
     pub default_variant_idx: Vec<usize>,
     #[serde(borrow)]
-    pub variants: &'a RawValue
+    pub variants: &'a RawValue,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

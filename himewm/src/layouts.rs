@@ -8,10 +8,11 @@ pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
         match entry_result {
             Ok(entry) => match std::fs::read(entry.path()) {
                 Ok(byte_vector) => {
-                    let user_layout: UserLayout = match serde_json::from_slice(byte_vector.as_slice()) {
-                        Ok(val) => val,
-                        Err(_) => continue,
-                    };
+                    let user_layout: UserLayout =
+                        match serde_json::from_slice(byte_vector.as_slice()) {
+                            Ok(val) => val,
+                            Err(_) => continue,
+                        };
                     let layout = match Layout::try_from(user_layout) {
                         Ok(l) => l,
                         Err(_) => continue,

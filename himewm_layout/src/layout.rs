@@ -28,7 +28,9 @@ impl Layout {
         &self.variants
     }
 
-    pub fn get_variants_mut(&mut self) -> &mut variants_container::VariantsContainer<variant::Variant> {
+    pub fn get_variants_mut(
+        &mut self,
+    ) -> &mut variants_container::VariantsContainer<variant::Variant> {
         &mut self.variants
     }
 
@@ -56,12 +58,9 @@ impl Layout {
         window_padding: i32,
         edge_padding: i32,
     ) -> &Vec<position::Position> {
-        self.variants.get_innermost_mut(variant_idx).get_internal_positions(
-            n,
-            window_padding,
-            edge_padding,
-            &self.monitor_rect,
-        )
+        self.variants
+            .get_innermost_mut(variant_idx)
+            .get_internal_positions(n, window_padding, edge_padding, &self.monitor_rect)
     }
 }
 
@@ -69,7 +68,10 @@ impl TryFrom<user_layout::UserLayout<'_>> for Layout {
     type Error = serde_json::Error;
 
     fn try_from(value: user_layout::UserLayout) -> Result<Self, Self::Error> {
-        let user_variants = variants_container::VariantsContainer::<user_layout::UserVariant>::from_raw_value(&value.variants)?;
+        let user_variants =
+            variants_container::VariantsContainer::<user_layout::UserVariant>::from_raw_value(
+                &value.variants,
+            )?;
         Ok(Self {
             monitor_rect: position::Position::new(0, 0, value.w, value.h),
             variants: user_variants.map(variant::Variant::from),
