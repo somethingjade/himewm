@@ -1,5 +1,5 @@
 use crate::{window_rules, windows_api, wm_cb, wm_messages, wm_util};
-use himewm_layout::*;
+use himewm_layout::layout::*;
 use windows::{
     core::*,
     Win32::{
@@ -41,13 +41,13 @@ impl Settings {
 #[derive(Clone)]
 struct Workspace {
     layout_idx: usize,
-    variant_idx: usize,
+    variant_idx: Vec<usize>,
     window_handles: std::collections::HashSet<*mut core::ffi::c_void>,
     managed_window_handles: Vec<HWND>,
 }
 
 impl Workspace {
-    fn new(hwnd: HWND, layout_idx: usize, variant_idx: usize) -> Self {
+    fn new(hwnd: HWND, layout_idx: usize, variant_idx: Vec<usize>) -> Self {
         Self {
             layout_idx,
             variant_idx,
@@ -56,7 +56,7 @@ impl Workspace {
         }
     }
 
-    fn insert_into_new(hwnd: HWND, layout_idx: usize, variant_idx: usize) -> Self {
+    fn insert_into_new(hwnd: HWND, layout_idx: usize, variant_idx: Vec<usize>) -> Self {
         Self {
             layout_idx,
             variant_idx,
@@ -171,14 +171,14 @@ impl WindowManager {
             LPARAM(self as *mut WindowManager as isize),
         );
         for layout in layouts {
-            for (hmonitor, layouts) in self.layouts.iter_mut() {
+            for (hmonitor, wm_layouts) in self.layouts.iter_mut() {
                 let mut layout =
                     match wm_util::convert_layout_for_monitor(&layout, HMONITOR(*hmonitor)) {
                         Some(val) => val,
                         None => layout.clone(),
                     };
                 layout.update_all(self.settings.window_padding, self.settings.edge_padding);
-                layouts.push(layout);
+                wm_layouts.push(layout);
             }
         }
         let _ = windows_api::enum_windows(
@@ -634,7 +634,7 @@ impl WindowManager {
                             self.settings.default_layout_idx,
                             self.layouts.get(&new_monitor_handle.0).unwrap()
                                 [self.settings.default_layout_idx]
-                                .default_variant_idx(),
+                                .default_variant_idx().to_owned(),
                         ),
                     );
                     window_info.monitor_handle = new_monitor_handle;
@@ -660,7 +660,7 @@ impl WindowManager {
                 layout =
                     &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
                 layout.get_internal_positions(
-                    workspace.variant_idx,
+                    &workspace.variant_idx,
                     workspace.managed_window_handles.len() + 1,
                     self.settings.window_padding,
                     self.settings.edge_padding,
@@ -669,7 +669,7 @@ impl WindowManager {
                 layout = &mut self.layouts.get_mut(&original_monitor_handle.0).unwrap()
                     [workspace.layout_idx];
                 layout.get_internal_positions(
-                    workspace.variant_idx,
+                    &workspace.variant_idx,
                     workspace.managed_window_handles.len(),
                     self.settings.window_padding,
                     self.settings.edge_padding,
@@ -803,7 +803,7 @@ impl WindowManager {
         self.update_workspace(desktop_id, monitor_handle);
     }
 
-    pub fn cycle_variant(&mut self, direction: CycleDirection) {
+    pub fn cycle_variant(&mut self, direction: CycleDirection, idx: usize) {
         let foreground_window = match self.foreground_window {
             Some(hwnd) => hwnd,
             None => return,
@@ -827,24 +827,33 @@ impl WindowManager {
             Some(val) => val,
             _ => return,
         };
-        let variants_len =
-            self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].variants_len();
+        while workspace.variant_idx.len() <= idx {
+            workspace.variant_idx.push(0);
+        }
+        let variants_len = match self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].get_variants().get(&workspace.variant_idx[0..idx]) {
+            himewm_layout::variants_container::VariantsContainerReturn::Container(container) => container.len(),
+            himewm_layout::variants_container::VariantsContainerReturn::Variant(_) => return,
+        };
         if variants_len == 1 {
+            workspace.variant_idx[idx] = 0;
             return;
+        }
+        if workspace.variant_idx[idx] > variants_len - 1 {
+            workspace.variant_idx[idx] = variants_len - 1;
         }
         match direction {
             CycleDirection::Previous => {
-                if workspace.variant_idx != 0 {
-                    workspace.variant_idx -= 1;
+                if workspace.variant_idx[idx] != 0 {
+                    workspace.variant_idx[idx] -= 1;
                 } else {
-                    workspace.variant_idx = variants_len - 1;
+                    workspace.variant_idx[idx] = variants_len - 1;
                 }
             }
             CycleDirection::Next => {
-                if workspace.variant_idx != variants_len - 1 {
-                    workspace.variant_idx += 1;
+                if workspace.variant_idx[idx] != variants_len - 1 {
+                    workspace.variant_idx[idx] += 1;
                 } else {
-                    workspace.variant_idx = 0;
+                    workspace.variant_idx[idx] = 0;
                 }
             }
         }
@@ -895,7 +904,7 @@ impl WindowManager {
                 }
             }
         }
-        workspace.variant_idx = layouts[workspace.layout_idx].default_variant_idx();
+        workspace.variant_idx = layouts[workspace.layout_idx].default_variant_idx().to_owned();
         self.update_workspace(desktop_id, monitor_handle);
     }
 
@@ -1046,7 +1055,7 @@ impl WindowManager {
                         self.settings.default_layout_idx,
                         self.layouts.get(&new_monitor_handle.0).unwrap()
                             [self.settings.default_layout_idx]
-                            .default_variant_idx(),
+                            .default_variant_idx().to_owned(),
                     ),
                 );
                 let window_info_mut = self.window_info.get_mut(&foreground_window.0).unwrap();
@@ -1064,7 +1073,7 @@ impl WindowManager {
             let layout =
                 &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
             let position = &layout.get_internal_positions(
-                workspace.variant_idx,
+                &workspace.variant_idx,
                 workspace.managed_window_handles.len(),
                 self.settings.window_padding,
                 self.settings.edge_padding,
@@ -1184,7 +1193,7 @@ impl WindowManager {
                 let layout =
                     &mut self.layouts.get_mut(&new_monitor_handle.0).unwrap()[workspace.layout_idx];
                 let position = &layout.get_internal_positions(
-                    workspace.variant_idx,
+                    &workspace.variant_idx,
                     workspace.managed_window_handles.len(),
                     self.settings.window_padding,
                     self.settings.edge_padding,
@@ -1238,7 +1247,7 @@ impl WindowManager {
                     let layout =
                         &mut self.layouts.get_mut(&monitor_handle.0).unwrap()[workspace.layout_idx];
                     let position = &layout.get_internal_positions(
-                        workspace.variant_idx,
+                        &workspace.variant_idx,
                         workspace.managed_window_handles.len(),
                         self.settings.window_padding,
                         self.settings.edge_padding,
@@ -1370,7 +1379,7 @@ impl WindowManager {
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];
         let mut error_indices: Option<Vec<usize>> = None;
         let positions = layout.get_internal_positions(
-            workspace.variant_idx,
+            &workspace.variant_idx,
             workspace.managed_window_handles.len(),
             self.settings.window_padding,
             self.settings.edge_padding,
@@ -1562,7 +1571,7 @@ impl WindowManager {
                         self.settings.default_layout_idx,
                         self.layouts.get(&window_info.monitor_handle.0).unwrap()
                             [self.settings.default_layout_idx]
-                            .default_variant_idx(),
+                            .default_variant_idx().to_owned(),
                     ),
                 );
                 window_info.idx = 0;
@@ -1619,7 +1628,7 @@ impl WindowManager {
                             self.settings.default_layout_idx,
                             self.layouts.get(&window_info.monitor_handle.0).unwrap()
                                 [self.settings.default_layout_idx]
-                                .default_variant_idx(),
+                                .default_variant_idx().to_owned(),
                         ),
                     );
                 }

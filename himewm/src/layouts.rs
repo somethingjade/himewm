@@ -1,5 +1,5 @@
 use crate::directories::*;
-use himewm_layout::*;
+use himewm_layout::{layout::*, user_layout::*};
 
 pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
     let mut ret = Vec::new();
@@ -8,8 +8,12 @@ pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
         match entry_result {
             Ok(entry) => match std::fs::read(entry.path()) {
                 Ok(byte_vector) => {
-                    let layout: Layout = match serde_json::from_slice(byte_vector.as_slice()) {
+                    let user_layout: UserLayout = match serde_json::from_slice(byte_vector.as_slice()) {
                         Ok(val) => val,
+                        Err(_) => continue,
+                    };
+                    let layout = match Layout::try_from(user_layout) {
+                        Ok(l) => l,
                         Err(_) => continue,
                     };
                     let layout_name = std::path::Path::new(&entry.file_name()).with_extension("");

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use windows::Win32::Foundation::*;
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Position(i32, i32, i32, i32);
 
 impl From<RECT> for Position {

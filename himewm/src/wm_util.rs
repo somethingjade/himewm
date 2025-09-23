@@ -1,5 +1,8 @@
 use crate::windows_api;
-use himewm_layout::*;
+use himewm_layout::{
+    layout::*,
+    position::*
+};
 use windows::{
     core::PSTR,
     Win32::{Foundation::*, Graphics::Gdi::*, System::Threading::*, UI::WindowsAndMessaging::*},
@@ -37,7 +40,7 @@ pub fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
     let new_width = monitor_rect.w() as f64;
     let new_height = monitor_rect.h() as f64;
     let mut ret = layout.clone();
-    for variant in ret.get_variants_mut().iter_mut() {
+    ret.get_variants_mut().callback_all(|variant| {
         for positions in variant.get_positions_mut().iter_mut() {
             for position in positions {
                 position.set_x(position.x() - variant_monitor_rect.x());
@@ -60,7 +63,7 @@ pub fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
                 position.set_y(position.y() + monitor_rect.y());
             }
         }
-    }
+    });
     ret.set_monitor_rect(monitor_rect.clone());
     return Some(ret);
 }

@@ -47,12 +47,6 @@ pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
             wm_messages::hotkey_identifiers::SWAP_NEXT => {
                 wm.cycle_swap(wm::CycleDirection::Next);
             }
-            wm_messages::hotkey_identifiers::VARIANT_PREVIOUS => {
-                wm.cycle_variant(wm::CycleDirection::Previous);
-            }
-            wm_messages::hotkey_identifiers::VARIANT_NEXT => {
-                wm.cycle_variant(wm::CycleDirection::Next);
-            }
             wm_messages::hotkey_identifiers::LAYOUT_PREVIOUS => {
                 wm.cycle_layout(wm::CycleDirection::Previous);
             }
@@ -89,7 +83,18 @@ pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
             wm_messages::hotkey_identifiers::REQUEST_RESTART => {
                 wm.restart_himewm();
             }
-            _ => (),
+            _ => {
+                let direction = if msg.wParam.0 % 2 == 0 {
+                    wm::CycleDirection::Previous
+                } else {
+                    wm::CycleDirection::Next
+                };
+                let idx = match direction {
+                    wm::CycleDirection::Previous => msg.wParam.0/2 - wm_messages::hotkey_identifiers::VARIANT_START,
+                    wm::CycleDirection::Next => (msg.wParam.0 - 1)/2 - wm_messages::hotkey_identifiers::VARIANT_START,
+                };
+                wm.cycle_variant(direction, idx);
+            },
         },
         _ => (),
     }
