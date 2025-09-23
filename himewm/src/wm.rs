@@ -256,13 +256,13 @@ impl WindowManager {
         ]));
         match self.get_window_rule(hwnd, &filter) {
             Some(rule) => match rule {
-                window_rules::InternalRule::LayoutIdx(idx) => {
+                window_rules::Rule::LayoutIdx(idx) => {
                     self.push_hwnd(guid, hmonitor, hwnd);
                     if let Some(workspace) = self.workspaces.get_mut(&(guid, hmonitor.0)) {
                         workspace.layout_idx = idx;
                     }
                 }
-                window_rules::InternalRule::StartFloating(set_position) => {
+                window_rules::Rule::StartFloating(set_position) => {
                     self.add_hwnd_to_workspace(guid, hmonitor, hwnd);
                     self.ignored_windows.insert(hwnd.0);
                     match set_position {
@@ -1274,7 +1274,7 @@ impl WindowManager {
             ]));
             match self.get_window_rule(foreground_window, &filter) {
                 Some(rule) => match rule {
-                    window_rules::InternalRule::FloatingPosition(window_rules::Position {
+                    window_rules::Rule::FloatingPosition(window_rules::Position {
                         x,
                         y,
                         w,
@@ -1674,7 +1674,7 @@ impl WindowManager {
         &mut self,
         hwnd: HWND,
         filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
-    ) -> Option<window_rules::InternalRule> {
+    ) -> Option<window_rules::Rule> {
         match wm_util::get_window_title(hwnd) {
             Ok(title) => {
                 for window_rule in &self.window_rules.title_window_rules {

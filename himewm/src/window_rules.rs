@@ -23,14 +23,14 @@ pub enum SetPosition {
 }
 
 #[derive(Deserialize, Serialize)]
-enum Rule {
+enum UserRule {
     Layout(String),
     StartFloating(SetPosition),
     FloatingPosition(Position),
 }
 
 #[derive(Clone)]
-pub enum InternalRule {
+pub enum Rule {
     LayoutIdx(usize),
     StartFloating(SetPosition),
     FloatingPosition(Position),
@@ -43,12 +43,12 @@ pub enum FilterRule {
     FloatingPosition,
 }
 
-impl From<&InternalRule> for FilterRule {
-    fn from(value: &InternalRule) -> Self {
+impl From<&Rule> for FilterRule {
+    fn from(value: &Rule) -> Self {
         match value {
-            InternalRule::LayoutIdx(_) => return Self::Layout,
-            InternalRule::StartFloating(_) => return Self::StartFloating,
-            InternalRule::FloatingPosition(_) => return Self::FloatingPosition,
+            Rule::LayoutIdx(_) => return Self::Layout,
+            Rule::StartFloating(_) => return Self::StartFloating,
+            Rule::FloatingPosition(_) => return Self::FloatingPosition,
         }
     }
 }
@@ -57,12 +57,12 @@ impl From<&InternalRule> for FilterRule {
 pub struct WindowRule {
     match_type: MatchType,
     regex: String,
-    rule: Rule,
+    rule: UserRule,
 }
 
 pub struct InternalWindowRule {
     pub regex: Regex,
-    pub rule: InternalRule,
+    pub rule: Rule,
 }
 
 pub struct InternalWindowRules {
@@ -86,14 +86,14 @@ pub fn get_internal_window_rules(
     let mut ret = InternalWindowRules::default();
     for window_rule in window_rules {
         let rule = match &window_rule.rule {
-            Rule::Layout(layout_name) => match layout_idx_map.get(layout_name) {
-                Some(i) => InternalRule::LayoutIdx(*i),
+            UserRule::Layout(layout_name) => match layout_idx_map.get(layout_name) {
+                Some(i) => Rule::LayoutIdx(*i),
                 None => continue,
             },
-            Rule::StartFloating(set_position) => {
-                InternalRule::StartFloating(set_position.to_owned())
+            UserRule::StartFloating(set_position) => {
+                Rule::StartFloating(set_position.to_owned())
             }
-            Rule::FloatingPosition(position) => InternalRule::FloatingPosition(position.to_owned()),
+            UserRule::FloatingPosition(position) => Rule::FloatingPosition(position.to_owned()),
         };
         let internal_window_rule = InternalWindowRule {
             regex: Regex::new(&window_rule.regex).unwrap(),
