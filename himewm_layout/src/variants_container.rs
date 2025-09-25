@@ -193,11 +193,7 @@ impl<T: Clone> VariantsContainer<T> {
     pub fn map<U, F: Fn(T) -> U>(&self, cb: F) -> VariantsContainer<U> {
         let mut ret = match self {
             VariantsContainer::Container(_) => VariantsContainer::Container(Vec::new()),
-            VariantsContainer::Variants(inner) => {
-                return VariantsContainer::Variants(
-                    inner.iter().map(|variant| cb(variant.to_owned())).collect(),
-                );
-            }
+            VariantsContainer::Variants(_) => VariantsContainer::Variants(Vec::new()),
         };
         let mut stack = vec![vec![]];
         while !stack.is_empty() {
