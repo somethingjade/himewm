@@ -1552,7 +1552,7 @@ impl WindowManager {
             as i32;
         let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.x();
         let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.y();
-        let _ = windows_api::set_window_pos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+        let _ = windows_api::set_window_pos(hwnd, None, x - 7, y, w + 14, h + 7, SWP_NOZORDER);
     }
 
     fn add_hwnd_to_workspace(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
