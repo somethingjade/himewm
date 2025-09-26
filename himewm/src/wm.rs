@@ -1414,7 +1414,7 @@ impl WindowManager {
                         }
                     }
                     self.window_info.remove(&hwnd.0);
-                    if windows_api::get_last_error().0 == 5 {
+                    if windows_api::get_last_error() == ERROR_ACCESS_DENIED {
                         self.ignored_windows.insert(hwnd.0);
                     }
                 }
