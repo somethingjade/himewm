@@ -4,6 +4,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
 #[derive(Deserialize, Serialize)]
 struct UserVariantKeybind {
+    index: usize,
     previous: String,
     next: String,
 }
@@ -26,7 +27,7 @@ pub struct UserKeybinds {
     toggle_workspace: String,
     refresh_workspace: String,
     restart_himewm: String,
-    variant_keybinds: std::collections::HashMap<usize, UserVariantKeybind>,
+    variant_keybinds: Vec<UserVariantKeybind>,
 }
 
 impl Default for UserKeybinds {
@@ -48,22 +49,18 @@ impl Default for UserKeybinds {
             toggle_workspace: "alt n".to_owned(),
             refresh_workspace: "alt r".to_owned(),
             restart_himewm: "alt shift r".to_owned(),
-            variant_keybinds: std::collections::HashMap::from([
-                (
-                    0,
-                    UserVariantKeybind {
-                        previous: "alt h".to_owned(),
-                        next: "alt l".to_owned(),
-                    },
-                ),
-                (
-                    1,
-                    UserVariantKeybind {
-                        previous: "alt shift h".to_owned(),
-                        next: "alt shift l".to_owned(),
-                    },
-                ),
-            ]),
+            variant_keybinds: vec![
+                UserVariantKeybind {
+                    index: 0,
+                    previous: "alt h".to_owned(),
+                    next: "alt l".to_owned(),
+                },
+                UserVariantKeybind {
+                    index: 1,
+                    previous: "alt shift h".to_owned(),
+                    next: "alt shift l".to_owned(),
+                },
+            ],
         }
     }
 }
@@ -125,6 +122,7 @@ impl TryFrom<&String> for Keybind {
 }
 
 struct VariantKeybind {
+    index: usize,
     previous: Keybind,
     next: Keybind,
 }
@@ -135,7 +133,11 @@ impl TryFrom<&UserVariantKeybind> for VariantKeybind {
     fn try_from(value: &UserVariantKeybind) -> Result<Self, Self::Error> {
         let previous = Keybind::try_from(&value.previous)?;
         let next = Keybind::try_from(&value.next)?;
-        return Ok(Self { previous, next });
+        return Ok(Self {
+            index: value.index,
+            previous,
+            next,
+        });
     }
 }
 
@@ -162,9 +164,9 @@ pub struct Keybinds {
 impl From<&UserKeybinds> for Keybinds {
     fn from(value: &UserKeybinds) -> Self {
         let mut variant_keybinds = std::collections::HashMap::new();
-        for (key, user_variant_keybind) in &value.variant_keybinds {
+        for user_variant_keybind in &value.variant_keybinds {
             if let Ok(variant_keybind) = VariantKeybind::try_from(user_variant_keybind) {
-                variant_keybinds.insert(*key, variant_keybind);
+                variant_keybinds.insert(variant_keybind.index, variant_keybind);
             }
         }
         return Self {
