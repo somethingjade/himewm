@@ -314,3 +314,9 @@ pub fn co_uninitialize() {
         CoUninitialize();
     }
 }
+
+pub fn is_window(hwnd: Option<HWND>) -> BOOL {
+    unsafe {
+        return IsWindow(hwnd);
+    }
+}
