@@ -43,9 +43,6 @@ impl Layout {
     }
 
     pub fn update_all(&mut self, window_padding: i32, edge_padding: i32) {
-        // for variant in self.variants.iter_mut() {
-        //     variant.update(window_padding, edge_padding, &self.monitor_rect);
-        // }
         self.variants.callback_all(|variant| {
             variant.update(window_padding, edge_padding, &self.monitor_rect);
         });
