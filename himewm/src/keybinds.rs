@@ -3,10 +3,15 @@ use serde::{Deserialize, Serialize};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
 #[derive(Deserialize, Serialize)]
-struct UserVariantKeybind {
-    index: usize,
+struct UserVariantKeybinds {
     previous: String,
     next: String,
+}
+
+#[derive(Deserialize, Serialize)]
+struct UserVariantKeybind {
+    index: usize,
+    keybinds: UserVariantKeybinds,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -52,13 +57,17 @@ impl Default for UserKeybinds {
             variant_keybinds: vec![
                 UserVariantKeybind {
                     index: 0,
-                    previous: "alt h".to_owned(),
-                    next: "alt l".to_owned(),
+                    keybinds: UserVariantKeybinds {
+                        previous: "alt h".to_owned(),
+                        next: "alt l".to_owned(),
+                    },
                 },
                 UserVariantKeybind {
                     index: 1,
-                    previous: "alt shift h".to_owned(),
-                    next: "alt shift l".to_owned(),
+                    keybinds: UserVariantKeybinds {
+                        previous: "alt shift h".to_owned(),
+                        next: "alt shift l".to_owned(),
+                    },
                 },
             ],
         }
@@ -121,22 +130,25 @@ impl TryFrom<&String> for Keybind {
     }
 }
 
-struct VariantKeybind {
-    index: usize,
+struct VariantKeybinds {
     previous: Keybind,
     next: Keybind,
+}
+
+struct VariantKeybind {
+    index: usize,
+    keybinds: VariantKeybinds,
 }
 
 impl TryFrom<&UserVariantKeybind> for VariantKeybind {
     type Error = &'static str;
 
     fn try_from(value: &UserVariantKeybind) -> Result<Self, Self::Error> {
-        let previous = Keybind::try_from(&value.previous)?;
-        let next = Keybind::try_from(&value.next)?;
+        let previous = Keybind::try_from(&value.keybinds.previous)?;
+        let next = Keybind::try_from(&value.keybinds.next)?;
         return Ok(Self {
             index: value.index,
-            previous,
-            next,
+            keybinds: VariantKeybinds { previous, next },
         });
     }
 }
@@ -158,15 +170,15 @@ pub struct Keybinds {
     toggle_workspace: Result<Keybind, &'static str>,
     refresh_workspace: Result<Keybind, &'static str>,
     restart_himewm: Result<Keybind, &'static str>,
-    variant_keybinds: std::collections::HashMap<usize, VariantKeybind>,
+    variant_keybinds: Vec<VariantKeybind>,
 }
 
 impl From<&UserKeybinds> for Keybinds {
     fn from(value: &UserKeybinds) -> Self {
-        let mut variant_keybinds = std::collections::HashMap::new();
+        let mut variant_keybinds = Vec::new();
         for user_variant_keybind in &value.variant_keybinds {
             if let Ok(variant_keybind) = VariantKeybind::try_from(user_variant_keybind) {
-                variant_keybinds.insert(variant_keybind.index, variant_keybind);
+                variant_keybinds.push(variant_keybind);
             }
         }
         return Self {
@@ -320,18 +332,18 @@ pub fn register_hotkeys(keybinds: Keybinds) {
             keybind.key,
         );
     }
-    for (key, variant_keybind) in keybinds.variant_keybinds {
+    for variant_keybind in keybinds.variant_keybinds {
         let _ = windows_api::register_hot_key(
             None,
-            2 * (wm_messages::hotkey_identifiers::VARIANT_START + key) as i32,
-            variant_keybind.previous.modifiers,
-            variant_keybind.previous.key,
+            2 * (wm_messages::hotkey_identifiers::VARIANT_START + variant_keybind.index) as i32,
+            variant_keybind.keybinds.previous.modifiers,
+            variant_keybind.keybinds.previous.key,
         );
         let _ = windows_api::register_hot_key(
             None,
-            2 * (wm_messages::hotkey_identifiers::VARIANT_START + key) as i32 + 1,
-            variant_keybind.next.modifiers,
-            variant_keybind.next.key,
+            2 * (wm_messages::hotkey_identifiers::VARIANT_START + variant_keybind.index) as i32 + 1,
+            variant_keybind.keybinds.next.modifiers,
+            variant_keybind.keybinds.next.key,
         );
     }
 }
