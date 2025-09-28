@@ -24,12 +24,8 @@ pub enum SplitDirection {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum EndBehaviourType {
-    Directional {
-        direction: Direction,
-    },
-    Repeating {
-        splits: Vec<RepeatingSplit>,
-    },
+    Directional { direction: Direction },
+    Repeating { splits: Vec<RepeatingSplit> },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -196,7 +192,9 @@ impl Variant {
                 };
                 match direction {
                     Direction::Horizontal => {
-                        let w = (self.positions[self.positions.len() - 1][self.end_behaviour.position_idx].w())
+                        let w = (self.positions[self.positions.len() - 1]
+                            [self.end_behaviour.position_idx]
+                            .w())
                             / (self.positions.len()
                                 - self.positions[self.positions.len() - 1].len()
                                 + 1) as i32;
@@ -210,7 +208,9 @@ impl Variant {
                         }
                     }
                     Direction::Vertical => {
-                        let h = (self.positions[self.positions.len() - 1][self.end_behaviour.position_idx].h())
+                        let h = (self.positions[self.positions.len() - 1]
+                            [self.end_behaviour.position_idx]
+                            .h())
                             / (self.positions.len()
                                 - self.positions[self.positions.len() - 1].len()
                                 + 1) as i32;
@@ -226,7 +226,10 @@ impl Variant {
                 }
                 let last_idx = self.positions.len() - 1;
                 if used_from {
-                    for i in (self.end_behaviour.from.to_owned().unwrap().len()..(self.positions.len() - 1)).rev() {
+                    for i in (self.end_behaviour.from.to_owned().unwrap().len()
+                        ..(self.positions.len() - 1))
+                        .rev()
+                    {
                         self.positions[last_idx].swap(self.end_behaviour.position_idx, i);
                     }
                 } else {
@@ -235,50 +238,50 @@ impl Variant {
                     }
                 }
             }
-            EndBehaviourType::Repeating { splits } => {
-                match &self.end_behaviour.from {
-                    Some(positions) if self.positions.len() == self.manual_positions_until => {
-                        self.positions.push(positions.clone());
-                        let mut repeating_split_idx = 0;
-                        let mut split_idx = self.end_behaviour.position_idx;
-                        let mut split = &splits[repeating_split_idx];
-                        while self.positions[self.positions.len() - 1].len() < self.positions.len() {
-                            self.apply_repeating_split(split, split_idx);
-                            repeating_split_idx = if repeating_split_idx == splits.len() - 1 {
-                                0
-                            } else {
-                                repeating_split_idx + 1
-                            };
-                            split = &splits[repeating_split_idx];
-                            split_idx = if repeating_split_idx == 0 {
-                                self.positions[self.positions.len() - 1].len() - 1 - splits.len() + split.offset
-                            } else {
-                                self.positions[self.positions.len() - 1].len() - 1 - repeating_split_idx + split.offset
-                            };
-                        }
-                    }
-                    _ => {
-                        let repeating_split_idx =
-                            (self.positions.len() - self.manual_positions_until) % splits.len();
-                        let split = &splits[repeating_split_idx];
-                        let split_idx = if self.positions.len() == self.manual_positions_until {
-                            self.end_behaviour.position_idx
-                        } else if repeating_split_idx == 0 {
-                            self.positions.len() - 1 - splits.len() + split.offset
-                        } else {
-                            self.positions.len() - 1 - repeating_split_idx + split.offset
-                        };
-                        self.positions
-                            .push(self.positions[self.positions.len() - 1].clone());
+            EndBehaviourType::Repeating { splits } => match &self.end_behaviour.from {
+                Some(positions) if self.positions.len() == self.manual_positions_until => {
+                    self.positions.push(positions.clone());
+                    let mut repeating_split_idx = 0;
+                    let mut split_idx = self.end_behaviour.position_idx;
+                    let mut split = &splits[repeating_split_idx];
+                    while self.positions[self.positions.len() - 1].len() < self.positions.len() {
                         self.apply_repeating_split(split, split_idx);
-                        if split.swap {
-                            let last_idx = self.positions.len() - 1;
-                            let swap_idx = self.positions[last_idx].len() - 1;
-                            self.positions[last_idx].swap(split_idx, swap_idx);
-                        }
+                        repeating_split_idx = if repeating_split_idx == splits.len() - 1 {
+                            0
+                        } else {
+                            repeating_split_idx + 1
+                        };
+                        split = &splits[repeating_split_idx];
+                        split_idx = if repeating_split_idx == 0 {
+                            self.positions[self.positions.len() - 1].len() - 1 - splits.len()
+                                + split.offset
+                        } else {
+                            self.positions[self.positions.len() - 1].len() - 1 - repeating_split_idx
+                                + split.offset
+                        };
                     }
                 }
-            }
+                _ => {
+                    let repeating_split_idx =
+                        (self.positions.len() - self.manual_positions_until) % splits.len();
+                    let split = &splits[repeating_split_idx];
+                    let split_idx = if self.positions.len() == self.manual_positions_until {
+                        self.end_behaviour.position_idx
+                    } else if repeating_split_idx == 0 {
+                        self.positions.len() - 1 - splits.len() + split.offset
+                    } else {
+                        self.positions.len() - 1 - repeating_split_idx + split.offset
+                    };
+                    self.positions
+                        .push(self.positions[self.positions.len() - 1].clone());
+                    self.apply_repeating_split(split, split_idx);
+                    if split.swap {
+                        let last_idx = self.positions.len() - 1;
+                        let swap_idx = self.positions[last_idx].len() - 1;
+                        self.positions[last_idx].swap(split_idx, swap_idx);
+                    }
+                }
+            },
         }
     }
 
