@@ -1,9 +1,15 @@
 use crate::{windows_api, wm_messages};
 use tray_icon::{
     menu::{Menu, MenuEvent, MenuId, MenuItemBuilder},
-    TrayIcon, TrayIconBuilder,
+    Icon, TrayIcon, TrayIconBuilder,
 };
 use windows::Win32::Foundation::{LPARAM, WPARAM};
+
+fn get_icon() -> Icon {
+    let icon_bytes = include_bytes!("../assets/icon.data");
+    let rgba = Vec::from(icon_bytes);
+    return Icon::from_rgba(rgba, 256, 256).unwrap();
+}
 
 pub fn create() -> tray_icon::Result<TrayIcon> {
     let menu = Menu::new();
@@ -19,9 +25,12 @@ pub fn create() -> tray_icon::Result<TrayIcon> {
         .build();
     menu.append(&restart_item).unwrap();
     menu.append(&quit_item).unwrap();
+    let tooltip = format!("himewm v{}", env!("CARGO_PKG_VERSION"));
+    let icon = get_icon();
     return TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_tooltip("himewm")
+        .with_tooltip(tooltip)
+        .with_icon(icon)
         .build();
 }
 
