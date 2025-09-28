@@ -54,23 +54,23 @@ impl From<&Rule> for FilterRule {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct WindowRule {
+pub struct UserWindowRule {
     match_type: MatchType,
     regex: String,
     rule: UserRule,
 }
 
-pub struct InternalWindowRule {
+pub struct WindowRule {
     pub regex: Regex,
     pub rule: Rule,
 }
 
-pub struct InternalWindowRules {
-    pub title_window_rules: Vec<InternalWindowRule>,
-    pub process_window_rules: Vec<InternalWindowRule>,
+pub struct WindowRules {
+    pub title_window_rules: Vec<WindowRule>,
+    pub process_window_rules: Vec<WindowRule>,
 }
 
-impl Default for InternalWindowRules {
+impl Default for WindowRules {
     fn default() -> Self {
         Self {
             title_window_rules: Vec::new(),
@@ -80,10 +80,10 @@ impl Default for InternalWindowRules {
 }
 
 pub fn get_internal_window_rules(
-    window_rules: &Vec<WindowRule>,
+    window_rules: &Vec<UserWindowRule>,
     layout_idx_map: &std::collections::HashMap<String, usize>,
-) -> InternalWindowRules {
-    let mut ret = InternalWindowRules::default();
+) -> WindowRules {
+    let mut ret = WindowRules::default();
     for window_rule in window_rules {
         let rule = match &window_rule.rule {
             UserRule::Layout(layout_name) => match layout_idx_map.get(layout_name) {
@@ -93,7 +93,7 @@ pub fn get_internal_window_rules(
             UserRule::StartFloating(set_position) => Rule::StartFloating(set_position.to_owned()),
             UserRule::FloatingPosition(position) => Rule::FloatingPosition(position.to_owned()),
         };
-        let internal_window_rule = InternalWindowRule {
+        let internal_window_rule = WindowRule {
             regex: Regex::new(&window_rule.regex).unwrap(),
             rule,
         };

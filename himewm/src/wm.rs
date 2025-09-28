@@ -113,14 +113,14 @@ pub struct WindowManager {
     ignored_windows: std::collections::HashSet<*mut core::ffi::c_void>,
     desktop_switching_state: DesktopSwitchingState,
     settings: Settings,
-    window_rules: window_rules::InternalWindowRules,
+    window_rules: window_rules::WindowRules,
     restart_requested: bool,
 }
 
 impl WindowManager {
     pub fn new(
         settings: Settings,
-        window_rules: window_rules::InternalWindowRules,
+        window_rules: window_rules::WindowRules,
         existing_event_hook: Option<HWINEVENTHOOK>,
         existing_vd_manager: Option<IVirtualDesktopManager>,
     ) -> Self {
