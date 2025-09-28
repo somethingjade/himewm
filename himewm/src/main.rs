@@ -36,7 +36,7 @@ fn main() {
                 };
                 let layout_idx_map = layouts::get_layout_idx_map(&layouts);
                 let internal_window_rules =
-                    window_rules::get_internal_window_rules(&user_window_rules, &layout_idx_map);
+                    window_rules::get_window_rules(&user_window_rules, &layout_idx_map);
                 let internal_keybinds = keybinds::Keybinds::from(&user_keybinds);
                 keybinds::register_hotkeys(internal_keybinds);
                 window_manager = Some(wm::WindowManager::new(

@@ -101,10 +101,10 @@ impl Variant {
             len += 1;
             for position in positions {
                 let mut internal_position = position::Position::new(
-                    position.x() - 7 + window_padding,
+                    position.x() + window_padding,
                     position.y() + window_padding,
-                    position.w() + 14 - 2 * window_padding,
-                    position.h() + 7 - 2 * window_padding,
+                    position.w() - 2 * window_padding,
+                    position.h() - 2 * window_padding,
                 );
                 if position.x() == monitor_rect.x() {
                     internal_position.set_x(internal_position.x() - window_padding + edge_padding);

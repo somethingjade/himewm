@@ -274,8 +274,7 @@ impl WindowManager {
                             w,
                             h,
                         }) => {
-                            let _ =
-                                windows_api::set_window_pos(hwnd, None, x, y, w, h, SWP_NOZORDER);
+                            let _ = self.set_visible_window_position(hwnd, x, y, w, h);
                         }
                     }
                 }
@@ -1093,15 +1092,14 @@ impl WindowManager {
                 workspace.managed_window_handles.len(),
                 self.settings.window_padding,
                 self.settings.edge_padding,
-            )[workspace.managed_window_handles.len() - 1];
-            let _ = windows_api::set_window_pos(
+            )[workspace.managed_window_handles.len() - 1]
+                .to_owned();
+            let _ = self.set_visible_window_position(
                 foreground_window,
-                None,
                 position.x(),
                 position.y(),
                 position.w(),
                 position.h(),
-                SWP_NOZORDER,
             );
         }
     }
@@ -1213,15 +1211,14 @@ impl WindowManager {
                     workspace.managed_window_handles.len(),
                     self.settings.window_padding,
                     self.settings.edge_padding,
-                )[new_idx];
-                let _ = windows_api::set_window_pos(
+                )[new_idx]
+                    .to_owned();
+                let _ = self.set_visible_window_position(
                     grabbed_window,
-                    None,
                     position.x(),
                     position.y(),
                     position.w(),
                     position.h(),
-                    SWP_NOZORDER,
                 );
             }
         }
@@ -1267,15 +1264,14 @@ impl WindowManager {
                         workspace.managed_window_handles.len(),
                         self.settings.window_padding,
                         self.settings.edge_padding,
-                    )[workspace.managed_window_handles.len() - 1];
-                    let _ = windows_api::set_window_pos(
+                    )[workspace.managed_window_handles.len() - 1]
+                        .to_owned();
+                    let _ = self.set_visible_window_position(
                         foreground_window,
-                        None,
                         position.x(),
                         position.y(),
                         position.w(),
                         position.h(),
-                        SWP_NOZORDER,
                     );
                 }
             }
@@ -1291,15 +1287,7 @@ impl WindowManager {
             match self.get_window_rule(foreground_window, &filter) {
                 Some(rule) => match rule {
                     window_rules::Rule::FloatingPosition(window_rules::Position { x, y, w, h }) => {
-                        let _ = windows_api::set_window_pos(
-                            foreground_window,
-                            None,
-                            x,
-                            y,
-                            w,
-                            h,
-                            SWP_NOZORDER,
-                        );
+                        let _ = self.set_visible_window_position(foreground_window, x, y, w, h);
                     }
                     _ => (),
                 },
@@ -1389,21 +1377,21 @@ impl WindowManager {
         }
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];
         let mut error_indices: Option<Vec<usize>> = None;
-        let positions = layout.get_internal_positions(
-            &workspace.variant_idx,
-            workspace.managed_window_handles.len(),
-            self.settings.window_padding,
-            self.settings.edge_padding,
-        );
+        let positions = layout
+            .get_internal_positions(
+                &workspace.variant_idx,
+                workspace.managed_window_handles.len(),
+                self.settings.window_padding,
+                self.settings.edge_padding,
+            )
+            .to_owned();
         for (i, hwnd) in workspace.managed_window_handles.iter().enumerate() {
-            match windows_api::set_window_pos(
+            match self.set_visible_window_position(
                 *hwnd,
-                None,
                 positions[i].x(),
                 positions[i].y(),
                 positions[i].w(),
                 positions[i].h(),
-                SWP_NOZORDER,
             ) {
                 Ok(_) => continue,
                 Err(_) => {
@@ -1537,6 +1525,79 @@ impl WindowManager {
         }
     }
 
+    fn get_window_rule(
+        &self,
+        hwnd: HWND,
+        filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
+    ) -> Option<window_rules::Rule> {
+        match wm_util::get_window_title(hwnd) {
+            Ok(title) => {
+                for window_rule in &self.window_rules.title_window_rules {
+                    if window_rule.regex.is_match(&title) {
+                        match &filter {
+                            Some(f) => {
+                                let filter_for = window_rules::FilterRule::from(&window_rule.rule);
+                                if f.contains(&filter_for) {
+                                    return Some(window_rule.rule.to_owned());
+                                }
+                            }
+                            None => return Some(window_rule.rule.to_owned()),
+                        }
+                    }
+                }
+            }
+            Err(_) => (),
+        }
+        match wm_util::get_exe_name(hwnd) {
+            Ok(title) => {
+                for window_rule in &self.window_rules.process_window_rules {
+                    if window_rule.regex.is_match(&title) {
+                        match &filter {
+                            Some(f) => {
+                                let filter_for = window_rules::FilterRule::from(&window_rule.rule);
+                                if f.contains(&filter_for) {
+                                    return Some(window_rule.rule.to_owned());
+                                }
+                            }
+                            None => return Some(window_rule.rule.to_owned()),
+                        }
+                    }
+                }
+                return None;
+            }
+            Err(_) => return None,
+        }
+    }
+
+    fn set_visible_window_position(
+        &self,
+        hwnd: HWND,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+    ) -> Result<()> {
+        let filter = Some(std::collections::HashSet::from([
+            window_rules::FilterRule::InvisibleBorder,
+        ]));
+        let invisible_border = match self.get_window_rule(hwnd, &filter) {
+            Some(rule) => match rule {
+                window_rules::Rule::InvisibleBorder(val) => val,
+                _ => window_rules::InvisibleBorder::default(),
+            },
+            None => window_rules::InvisibleBorder::default(),
+        };
+        return windows_api::set_window_pos(
+            hwnd,
+            None,
+            x - invisible_border.left,
+            y - invisible_border.top,
+            w + invisible_border.left + invisible_border.right,
+            h + invisible_border.top + invisible_border.bottom,
+            SWP_NOZORDER,
+        );
+    }
+
     fn center_window(&self, hwnd: HWND) {
         let window_info = match self.window_info.get(&hwnd.0) {
             Some(val) => val,
@@ -1559,7 +1620,7 @@ impl WindowManager {
             as i32;
         let x = (((monitor_rect.w() - w) as f64) * 0.5).round() as i32 + monitor_rect.x();
         let y = (((monitor_rect.h() - h) as f64) * 0.5).round() as i32 + monitor_rect.y();
-        let _ = windows_api::set_window_pos(hwnd, None, x - 7, y, w + 14, h + 7, SWP_NOZORDER);
+        let _ = self.set_visible_window_position(hwnd, x, y, w, h);
     }
 
     fn add_hwnd_to_workspace(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
@@ -1702,50 +1763,6 @@ impl WindowManager {
         }
         if self.grabbed_window == Some(hwnd) {
             self.grabbed_window = None;
-        }
-    }
-
-    fn get_window_rule(
-        &mut self,
-        hwnd: HWND,
-        filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
-    ) -> Option<window_rules::Rule> {
-        match wm_util::get_window_title(hwnd) {
-            Ok(title) => {
-                for window_rule in &self.window_rules.title_window_rules {
-                    if window_rule.regex.is_match(&title) {
-                        match &filter {
-                            Some(f) => {
-                                let filter_for = window_rules::FilterRule::from(&window_rule.rule);
-                                if f.contains(&filter_for) {
-                                    return Some(window_rule.rule.to_owned());
-                                }
-                            }
-                            None => return Some(window_rule.rule.to_owned()),
-                        }
-                    }
-                }
-            }
-            Err(_) => (),
-        }
-        match wm_util::get_exe_name(hwnd) {
-            Ok(title) => {
-                for window_rule in &self.window_rules.process_window_rules {
-                    if window_rule.regex.is_match(&title) {
-                        match &filter {
-                            Some(f) => {
-                                let filter_for = window_rules::FilterRule::from(&window_rule.rule);
-                                if f.contains(&filter_for) {
-                                    return Some(window_rule.rule.to_owned());
-                                }
-                            }
-                            None => return Some(window_rule.rule.to_owned()),
-                        }
-                    }
-                }
-                return None;
-            }
-            Err(_) => return None,
         }
     }
 
