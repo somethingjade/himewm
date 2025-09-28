@@ -5,3 +5,5 @@
       A dynamic tiling window manager for Windows 11
   </b>
 </p>
+
+![screenshot of himewm in action](/embeds/screenshot.png)
