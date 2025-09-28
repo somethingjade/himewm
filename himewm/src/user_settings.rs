@@ -117,12 +117,16 @@ impl UserSettings {
 }
 
 fn hex_to_decimal(c: u8) -> u8 {
+    const ZERO: u8 = '0' as u8;
+    const NINE: u8 = '9' as u8;
+    const A: u8 = 'a' as u8;
+    const F: u8 = 'f' as u8;
     match c {
-        48..58 => {
-            return c - 48;
+        ZERO..=NINE => {
+            return c - ZERO;
         }
-        97..103 => {
-            return c - 87;
+        A..=F => {
+            return c - A + 10;
         }
         _ => return 0,
     }
