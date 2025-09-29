@@ -171,8 +171,7 @@ impl<T> VariantsContainer<T> {
     }
 
     pub fn callback_all<F: FnMut(&mut T)>(&mut self, mut cb: F) {
-        let mut stack = Vec::new();
-        stack.push(vec![0]);
+        let mut stack = vec![vec![]];
         while !stack.is_empty() {
             let current_idx = stack.pop().unwrap();
             match self.get_mut(&current_idx) {
