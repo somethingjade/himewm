@@ -1376,7 +1376,7 @@ impl WindowManager {
             return;
         }
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];
-        let mut error_indices: Option<Vec<usize>> = None;
+        let mut error_hwnds: Option<Vec<HWND>> = None;
         let positions = layout
             .get_internal_positions(
                 &workspace.variant_idx,
@@ -1395,22 +1395,21 @@ impl WindowManager {
             ) {
                 Ok(_) => continue,
                 Err(_) => {
-                    match &mut error_indices {
-                        Some(v) => v.push(i),
+                    match &mut error_hwnds {
+                        Some(v) => v.push(*hwnd),
                         None => {
-                            error_indices = Some(vec![i]);
+                            error_hwnds = Some(vec![*hwnd]);
                         }
                     }
-                    self.window_info.remove(&hwnd.0);
                     if windows_api::get_last_error() == ERROR_ACCESS_DENIED {
                         self.ignored_windows.insert(hwnd.0);
                     }
                 }
             }
         }
-        if let Some(v) = error_indices {
-            for (i, error_idx) in v.iter().enumerate() {
-                self.unmanage_hwnd(guid, hmonitor, *error_idx - i, true);
+        if let Some(v) = error_hwnds {
+            for h in v {
+                self.remove_hwnd(h);
             }
             self.update_workspace(guid, hmonitor);
         }
