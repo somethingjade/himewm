@@ -1530,7 +1530,7 @@ impl WindowManager {
         filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
     ) -> Option<window_rules::Rule> {
         match wm_util::get_window_title(hwnd) {
-            Ok(title) => {
+            Some(title) => {
                 for window_rule in &self.window_rules.title_window_rules {
                     if window_rule.regex.is_match(&title) {
                         match &filter {
@@ -1545,12 +1545,12 @@ impl WindowManager {
                     }
                 }
             }
-            Err(_) => (),
+            None => (),
         }
         match wm_util::get_exe_name(hwnd) {
-            Ok(title) => {
+            Some(name) => {
                 for window_rule in &self.window_rules.process_window_rules {
-                    if window_rule.regex.is_match(&title) {
+                    if window_rule.regex.is_match(&name) {
                         match &filter {
                             Some(f) => {
                                 let filter_for = window_rules::FilterRule::from(&window_rule.rule);
@@ -1564,7 +1564,9 @@ impl WindowManager {
                 }
                 return None;
             }
-            Err(_) => return None,
+            None => {
+                return None;
+            }
         }
     }
 

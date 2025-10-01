@@ -65,17 +65,22 @@ pub fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
     return Some(ret);
 }
 
-pub fn get_window_title(hwnd: HWND) -> Result<String, std::string::FromUtf8Error> {
+pub fn get_window_title(hwnd: HWND) -> Option<String> {
     let len = windows_api::get_window_text_length(hwnd) as usize;
     let mut buf = vec![0 as u8; len + 1];
     windows_api::get_window_text(hwnd, &mut buf);
-    return String::from_utf8(buf);
+    return String::from_utf8(buf).ok();
 }
 
-pub fn get_exe_name(hwnd: HWND) -> Result<String, std::string::FromUtf8Error> {
+pub fn get_exe_name(hwnd: HWND) -> Option<String> {
     let mut id = 0;
     windows_api::get_window_thread_process_id(hwnd, Some(&mut id));
-    let handle = windows_api::open_process(PROCESS_QUERY_LIMITED_INFORMATION, false, id).unwrap();
+    let handle = match windows_api::open_process(PROCESS_QUERY_LIMITED_INFORMATION, false, id) {
+        Ok(h) => h,
+        Err(_) => {
+            return None;
+        }
+    };
     let mut buf = [0 as u8; MAX_PATH_LEN];
     let mut size = MAX_PATH_LEN as u32;
     let _query = windows_api::query_full_process_image_name(
@@ -85,7 +90,7 @@ pub fn get_exe_name(hwnd: HWND) -> Result<String, std::string::FromUtf8Error> {
         &mut size,
     );
     let _close_handle = windows_api::close_handle(handle);
-    let path_string = String::from_utf8(Vec::from(&buf[0..size as usize]))?;
+    let path_string = String::from_utf8(Vec::from(&buf[0..size as usize])).ok()?;
     let path = std::path::Path::new(&path_string);
-    return Ok(String::from(path.file_name().unwrap().to_str().unwrap()));
+    return Some(String::from(path.file_name().unwrap().to_str().unwrap()));
 }
