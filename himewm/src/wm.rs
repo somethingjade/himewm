@@ -356,7 +356,7 @@ impl WindowManager {
         } = window_info.to_owned();
         self.remove_hwnd(hwnd);
         if let Some(workspace) = self.workspaces.get(&(desktop_id, monitor_handle.0)) {
-            if workspace.window_handles.len() == 0 {
+            if workspace.window_handles.is_empty() {
                 self.workspaces.remove(&(desktop_id, monitor_handle.0));
             } else if restored && !self.ignored_windows.contains(&hwnd.0) {
                 self.update_workspace(desktop_id, monitor_handle);
@@ -423,7 +423,7 @@ impl WindowManager {
             );
         }
         if let Some(old_workspace) = self.workspaces.get(&(old_desktop_id, monitor_handle.0)) {
-            if old_workspace.window_handles.len() == 0 {
+            if old_workspace.window_handles.is_empty() {
                 self.workspaces.remove(&(old_desktop_id, monitor_handle.0));
             } else {
                 self.update_workspace(old_desktop_id, monitor_handle);
@@ -461,7 +461,7 @@ impl WindowManager {
                         .workspaces
                         .get(&(uncloaked_desktop_id, current_monitor_handle.0))
                     {
-                        Some(w) if w.managed_window_handles.len() > 0 => {
+                        Some(w) if !w.managed_window_handles.is_empty() => {
                             let _ = windows_api::set_foreground_window(w.managed_window_handles[0]);
                         }
                         _ => (),
@@ -527,7 +527,7 @@ impl WindowManager {
                         .workspaces
                         .get(&(previous_desktop_id, monitor_handle.0))
                     {
-                        if previous_workspace.window_handles.len() == 0 {
+                        if previous_workspace.window_handles.is_empty() {
                             self.workspaces
                                 .remove(&(previous_desktop_id, monitor_handle.0));
                         } else {
@@ -968,7 +968,7 @@ impl WindowManager {
             .workspaces
             .get(&(desktop_id, self.monitor_handles[idx].0))
         {
-            Some(val) if val.managed_window_handles.len() != 0 => val,
+            Some(val) if !val.managed_window_handles.is_empty() => val,
             _ => return,
         };
         let _ = windows_api::set_foreground_window(workspace.managed_window_handles[0]);
@@ -1372,7 +1372,7 @@ impl WindowManager {
             Some(w) => w,
             None => return,
         };
-        if workspace.managed_window_handles.len() == 0 {
+        if workspace.managed_window_handles.is_empty() {
             return;
         }
         let layout = &mut self.layouts.get_mut(&hmonitor.0).unwrap()[workspace.layout_idx];

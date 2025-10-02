@@ -146,7 +146,7 @@ fn hex_string_to_colorref(s: &str) -> COLORREF {
 }
 
 fn parse_border_colour(s: &str) -> COLORREF {
-    if s.trim().len() == 0 {
+    if s.trim().is_empty() {
         return COLORREF(DWMWA_COLOR_DEFAULT);
     } else {
         return hex_string_to_colorref(s);

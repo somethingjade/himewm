@@ -88,7 +88,7 @@ impl TryFrom<&String> for Keybind {
         let mut parsed_keys = lowercase
             .split(' ')
             .map(|w| w.trim())
-            .filter(|w| w.len() > 0)
+            .filter(|w| !w.is_empty())
             .collect::<Vec<&str>>();
         let parsed_key = match parsed_keys.pop() {
             Some(k) => k,
