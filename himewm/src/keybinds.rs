@@ -1,4 +1,4 @@
-use crate::{windows_api, wm_messages};
+use crate::{util, windows_api, wm_messages};
 use serde::{Deserialize, Serialize};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
@@ -203,147 +203,357 @@ impl From<&UserKeybinds> for Keybinds {
     }
 }
 
-pub fn register_hotkeys(keybinds: Keybinds) {
-    if let Ok(keybind) = keybinds.focus_previous {
-        let _ = windows_api::register_hot_key(
+pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
+    if let Ok(keybind) = &keybinds.focus_previous {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::FOCUS_PREVIOUS as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register focus_previous hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.focus_next {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.focus_next {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::FOCUS_NEXT as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register focus_next hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.swap_previous {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.swap_previous {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::SWAP_PREVIOUS as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register swap_previous hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.swap_next {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.swap_next {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::SWAP_NEXT as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register swap_next hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.layout_previous {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.layout_previous {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::LAYOUT_PREVIOUS as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register layout_previous hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.layout_next {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.layout_next {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::LAYOUT_NEXT as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register layout_next hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.focus_previous_monitor {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.focus_previous_monitor {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register focus_previous_monitor hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.focus_next_monitor {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.focus_next_monitor {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::FOCUS_NEXT_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register focus_next_monitor hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.move_to_previous_monitor {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.move_to_previous_monitor {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register move_to_previous_monitor hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.move_to_next_monitor {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.move_to_next_monitor {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::MOVE_TO_NEXT_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register move_to_next_monitor hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.grab_window {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.grab_window {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::GRAB_WINDOW as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register grab_window hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.release_window {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.release_window {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::RELEASE_WINDOW as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register release_window hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.toggle_window {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.toggle_window {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::TOGGLE_WINDOW as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register toggle_window hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.toggle_workspace {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.toggle_workspace {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::TOGGLE_WORKSPACE as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register toggle_workspace hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.refresh_workspace {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.refresh_workspace {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::REFRESH_WORKSPACE as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register refresh_workspace hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    if let Ok(keybind) = keybinds.restart_himewm {
-        let _ = windows_api::register_hot_key(
+    if let Ok(keybind) = &keybinds.restart_himewm {
+        if let Err(e) = windows_api::register_hot_key(
             None,
             wm_messages::hotkey_identifiers::REQUEST_RESTART as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register restart_himewm hotkey\n{}",
+                    e.message()
+                ),
+            );
+        }
     }
-    for variant_keybind in keybinds.variant_keybinds {
-        let _ = windows_api::register_hot_key(
+    for variant_keybind in &keybinds.variant_keybinds {
+        if let Err(e) = windows_api::register_hot_key(
             None,
-            2 * (wm_messages::hotkey_identifiers::VARIANT_START + variant_keybind.index) as i32,
+            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index) as i32,
             variant_keybind.keybinds.previous.modifiers,
             variant_keybind.keybinds.previous.key,
-        );
-        let _ = windows_api::register_hot_key(
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register variant_keybinds hotkey (index: {}, previous)\n{}",
+                    variant_keybind.index,
+                    e.message()
+                ),
+            );
+        }
+        if let Err(e) = windows_api::register_hot_key(
             None,
-            2 * (wm_messages::hotkey_identifiers::VARIANT_START + variant_keybind.index) as i32 + 1,
+            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index + 1) as i32,
             variant_keybind.keybinds.next.modifiers,
             variant_keybind.keybinds.next.key,
-        );
+        ) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to register variant_keybinds hotkey (index: {}, next)\n{}",
+                    variant_keybind.index,
+                    e.message()
+                ),
+            );
+        }
+    }
+}
+
+pub fn unregister_hotkeys(keybinds: Keybinds, warnings_string: &mut String) {
+    for id in wm_messages::hotkey_identifiers::HOTKEY_IDENTIFIERS_START
+        ..wm_messages::hotkey_identifiers::VARIANT_START
+    {
+        if let Err(e) = windows_api::unregister_hot_key(None, id as i32) {
+            let hotkey_str = match id {
+                wm_messages::hotkey_identifiers::FOCUS_PREVIOUS => "focus_previous",
+                wm_messages::hotkey_identifiers::FOCUS_NEXT => "focus_next",
+                wm_messages::hotkey_identifiers::SWAP_PREVIOUS => "swap_previous",
+                wm_messages::hotkey_identifiers::SWAP_NEXT => "swap_next",
+                wm_messages::hotkey_identifiers::LAYOUT_PREVIOUS => "layout_previous",
+                wm_messages::hotkey_identifiers::LAYOUT_NEXT => "layout_next",
+                wm_messages::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => "focus_previous_monitor",
+                wm_messages::hotkey_identifiers::FOCUS_NEXT_MONITOR => "focus_next_monitor",
+                wm_messages::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
+                    "move_to_previous_monitor"
+                }
+                wm_messages::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => "move_to_next_monitor",
+                wm_messages::hotkey_identifiers::GRAB_WINDOW => "grab_window",
+                wm_messages::hotkey_identifiers::RELEASE_WINDOW => "release_window",
+                wm_messages::hotkey_identifiers::TOGGLE_WINDOW => "toggle_window",
+                wm_messages::hotkey_identifiers::TOGGLE_WORKSPACE => "toggle_workspace",
+                wm_messages::hotkey_identifiers::REFRESH_WORKSPACE => "refresh_workspace",
+                wm_messages::hotkey_identifiers::REQUEST_RESTART => "request_restart",
+                _ => continue,
+            };
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: failed to unregister {} hotkey\n{}",
+                    hotkey_str,
+                    e.message()
+                ),
+            );
+        }
+    }
+    for variant_keybind in keybinds.variant_keybinds {
+        let previous_id =
+            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index) as i32;
+        if let Err(e) = windows_api::unregister_hot_key(None, previous_id) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to unregister variant_keybinds hotkey (index: {}, previous)\n{}",
+                    variant_keybind.index,
+                    e.message()
+                ),
+            );
+        }
+        let next_id =
+            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index + 1) as i32;
+        if let Err(e) = windows_api::unregister_hot_key(None, next_id) {
+            util::add_to_message(
+                warnings_string,
+                &format!(
+                    "Warning: Failed to unregister variant_keybinds hotkey (index: {}, next)\n{}",
+                    variant_keybind.index,
+                    e.message()
+                ),
+            );
+        }
     }
 }

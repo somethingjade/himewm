@@ -13,12 +13,11 @@ pub mod messages {
 }
 
 pub mod hotkey_identifiers {
+    pub const HOTKEY_IDENTIFIERS_START: usize = 0;
     pub const FOCUS_PREVIOUS: usize = 0;
     pub const FOCUS_NEXT: usize = 1;
     pub const SWAP_PREVIOUS: usize = 2;
     pub const SWAP_NEXT: usize = 3;
-    // pub const VARIANT_PREVIOUS: usize = 4;
-    // pub const VARIANT_NEXT: usize = 5;
     pub const LAYOUT_PREVIOUS: usize = 4;
     pub const LAYOUT_NEXT: usize = 5;
     pub const FOCUS_PREVIOUS_MONITOR: usize = 6;

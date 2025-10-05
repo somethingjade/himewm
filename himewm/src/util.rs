@@ -1,41 +1,38 @@
-use crate::{directories, windows_api};
-use serde::{Deserialize, Serialize};
-use windows::Win32::System::Console::*;
+use crate::windows_api;
+use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
-pub fn show_error_message(message: &str) {
-    let _free_console = windows_api::free_console();
-    let _alloc_console = windows_api::alloc_console();
-    let handle = windows_api::get_std_handle(STD_INPUT_HANDLE).unwrap();
-    let mut console_mode = CONSOLE_MODE::default();
-    let _get_console_mode = windows_api::get_console_mode(handle, &mut console_mode);
-    let _set_console_mode =
-        windows_api::set_console_mode(handle, console_mode & !ENABLE_ECHO_INPUT);
-    println!("{}", message);
-    println!("Press ENTER to exit");
-    let mut buf = String::new();
-    let _read_line = std::io::stdin().read_line(&mut buf);
+pub enum MessageType {
+    Warning,
+    Error,
 }
 
-pub fn initialize_user_config<T>(file_name: &str) -> T
-where
-    for<'a> T: Default + Deserialize<'a> + Serialize,
-{
-    let dirs = directories::Directories::new();
-    let config_path = dirs.config_dir.join(format!("{file_name}"));
-    match std::fs::read(&config_path) {
-        Ok(byte_vector) => match serde_json::from_slice::<T>(byte_vector.as_slice()) {
-            Ok(user_config) => {
-                return user_config;
-            }
-            Err(_) => {
-                return T::default();
-            }
-        },
-        Err(_) => {
-            let file = std::fs::File::create_new(config_path).unwrap();
-            let default_user_config = T::default();
-            let _ = serde_json::to_writer_pretty(&file, &default_user_config);
-            return default_user_config;
-        }
+pub fn add_to_message(message_buffer: &mut String, message: &str) {
+    if !message_buffer.is_empty() {
+        message_buffer.push_str("\n\n");
     }
+    message_buffer.push_str(message);
+}
+
+pub fn get_console_hwnd() -> HWND {
+    let console_hwnd = windows_api::get_console_window();
+    let _set_foreground_window = windows_api::set_foreground_window(console_hwnd);
+    return windows_api::get_foreground_window();
+}
+
+pub fn display_message(console_hwnd: HWND, message_type: &MessageType, message: &str) {
+    let _clear_console_window = std::process::Command::new("cmd")
+        .args(["/c", "cls"])
+        .status();
+    let _show_console_window = windows_api::show_window(console_hwnd, SW_SHOW);
+    let _set_foreground_window = windows_api::set_foreground_window(console_hwnd);
+    println!("{}", message);
+    let prompt_str = match message_type {
+        MessageType::Warning => "Press ENTER to continue",
+        MessageType::Error => "Press ENTER to exit",
+    };
+    println!("");
+    println!("{}", prompt_str);
+    let mut buf = String::new();
+    let _read_line = std::io::stdin().read_line(&mut buf);
+    let _hide_console_window = windows_api::show_window(console_hwnd, SW_HIDE);
 }

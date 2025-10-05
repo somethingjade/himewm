@@ -91,10 +91,10 @@ pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
                 };
                 let idx = match direction {
                     wm::CycleDirection::Previous => {
-                        msg.wParam.0 / 2 - wm_messages::hotkey_identifiers::VARIANT_START
+                        (msg.wParam.0 - wm_messages::hotkey_identifiers::VARIANT_START) / 2
                     }
                     wm::CycleDirection::Next => {
-                        (msg.wParam.0 - 1) / 2 - wm_messages::hotkey_identifiers::VARIANT_START
+                        (msg.wParam.0 - wm_messages::hotkey_identifiers::VARIANT_START - 1) / 2
                     }
                 };
                 wm.cycle_variant(direction, idx);

@@ -1,13 +1,34 @@
-#![windows_subsystem = "windows"]
 use himewm::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 fn main() {
-    // Maybe error handle this
-    let _create_dirs = directories::create_dirs();
+    let console_hwnd = util::get_console_hwnd();
+    let _hide_console_window = windows_api::show_window(console_hwnd, SW_HIDE);
+    if let Err(e) = directories::create_dirs() {
+        match e.kind() {
+            std::io::ErrorKind::AlreadyExists => (),
+            _ => {
+                util::display_message(
+                    console_hwnd,
+                    &util::MessageType::Error,
+                    "Error: Failed to create himewm config directories",
+                );
+                windows_api::post_quit_message(0);
+            }
+        }
+    }
+    let tray_icon = tray_icon::create();
+    if let Err(_) = tray_icon {
+        util::display_message(
+            console_hwnd,
+            &util::MessageType::Error,
+            "Error: Failed to create himewm tray icon",
+        );
+        windows_api::post_quit_message(0);
+    }
     let mut window_manager: Option<wm::WindowManager> = None;
-    let _create_tray_icon = tray_menu::create();
-    tray_menu::set_menu_event_handler();
+    tray_icon::set_menu_event_handler();
+    let mut previous_keybinds = None;
     let mut msg = MSG::default();
     let mut first_iteration = true;
     while first_iteration || windows_api::get_message(&mut msg, None, 0, 0).as_bool() {
@@ -23,30 +44,43 @@ fn main() {
                     existing_vd_manager = Some(wm.get_virtual_desktop_manager().to_owned());
                     existing_event_hook = Some(wm.get_event_hook());
                 }
-                let user_settings =
-                    util::initialize_user_config::<user_settings::UserSettings>("settings.json");
-                let user_window_rules = util::initialize_user_config("window_rules.json");
-                let user_keybinds = util::initialize_user_config("keybinds.json");
-                let layouts = match layouts::initialize_layouts() {
-                    Some(val) => val,
-                    None => {
-                        util::show_error_message("No layouts found");
-                        return;
+                let user_config::UserConfig {
+                    config:
+                        user_config::Config {
+                            settings,
+                            window_rules,
+                            layouts,
+                            keybinds,
+                        },
+                    mut warnings,
+                    errors,
+                } = user_config::get_user_config();
+                if let Some(registered_keybinds) = previous_keybinds {
+                    keybinds::unregister_hotkeys(registered_keybinds, &mut warnings);
+                }
+                keybinds::register_hotkeys(&keybinds, &mut warnings);
+                previous_keybinds = Some(keybinds);
+                let mut message_type = util::MessageType::Warning;
+                let mut message = String::new();
+                util::add_to_message(&mut message, &warnings);
+                if !errors.is_empty() {
+                    util::add_to_message(&mut message, &errors);
+                    message_type = util::MessageType::Error;
+                }
+                if !message.is_empty() {
+                    util::display_message(console_hwnd, &message_type, &message);
+                    if let util::MessageType::Error = message_type {
+                        windows_api::post_quit_message(0);
                     }
-                };
-                let layout_idx_map = layouts::get_layout_idx_map(&layouts);
-                let internal_window_rules =
-                    window_rules::get_window_rules(&user_window_rules, &layout_idx_map);
-                let internal_keybinds = keybinds::Keybinds::from(&user_keybinds);
-                keybinds::register_hotkeys(internal_keybinds);
+                }
                 window_manager = Some(wm::WindowManager::new(
-                    user_settings.to_settings(&layout_idx_map),
-                    internal_window_rules,
+                    settings,
+                    window_rules,
                     existing_event_hook,
                     existing_vd_manager,
                 ));
                 if let Some(wm) = &mut window_manager {
-                    wm.initialize(layouts.into_iter().map(|(_, layout)| layout).collect());
+                    wm.initialize(layouts);
                 }
             }
         }

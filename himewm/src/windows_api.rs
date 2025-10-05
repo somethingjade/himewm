@@ -74,7 +74,6 @@ pub fn get_foreground_window() -> HWND {
         return GetForegroundWindow();
     }
 }
-// match self.virtual_desktop_manager.GetWindowDesktopId(hwnd) {
 
 pub fn get_window_desktop_id(
     i_virtual_desktop_manager: &IVirtualDesktopManager,
@@ -199,33 +198,9 @@ pub fn register_hot_key(
     }
 }
 
-pub fn free_console() -> Result<()> {
+pub fn unregister_hot_key(hwnd: Option<HWND>, id: i32) -> Result<()> {
     unsafe {
-        return FreeConsole();
-    }
-}
-
-pub fn alloc_console() -> Result<()> {
-    unsafe {
-        return AllocConsole();
-    }
-}
-
-pub fn get_std_handle(nstdhandle: STD_HANDLE) -> Result<HANDLE> {
-    unsafe {
-        return GetStdHandle(nstdhandle);
-    }
-}
-
-pub fn get_console_mode(hconsolehandle: HANDLE, lpmode: *mut CONSOLE_MODE) -> Result<()> {
-    unsafe {
-        return GetConsoleMode(hconsolehandle, lpmode);
-    }
-}
-
-pub fn set_console_mode(hconsolehandle: HANDLE, dwmode: CONSOLE_MODE) -> Result<()> {
-    unsafe {
-        return SetConsoleMode(hconsolehandle, dwmode);
+        return UnregisterHotKey(hwnd, id);
     }
 }
 
@@ -276,7 +251,7 @@ pub fn close_handle(hobject: HANDLE) -> Result<()> {
 
 pub fn post_quit_message(nexitcode: i32) {
     unsafe {
-        PostQuitMessage(nexitcode);
+        return PostQuitMessage(nexitcode);
     }
 }
 
@@ -311,12 +286,18 @@ pub fn unhook_win_event(hwineventhook: HWINEVENTHOOK) -> BOOL {
 
 pub fn co_uninitialize() {
     unsafe {
-        CoUninitialize();
+        return CoUninitialize();
     }
 }
 
 pub fn is_window(hwnd: Option<HWND>) -> BOOL {
     unsafe {
         return IsWindow(hwnd);
+    }
+}
+
+pub fn get_console_window() -> HWND {
+    unsafe {
+        return GetConsoleWindow();
     }
 }

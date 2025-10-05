@@ -1,8 +1,9 @@
 pub mod directories;
 pub mod keybinds;
 pub mod layouts;
-pub mod tray_menu;
-pub mod user_settings;
+pub mod settings;
+pub mod tray_icon;
+pub mod user_config;
 pub mod util;
 pub mod window_rules;
 pub mod windows_api;

@@ -1,4 +1,4 @@
-use crate::{window_rules, windows_api, wm_cb, wm_messages, wm_util};
+use crate::{settings, window_rules, windows_api, wm_cb, wm_messages, wm_util};
 use himewm_layout::layout::*;
 use windows::{
     core::*,
@@ -13,29 +13,6 @@ use windows::{
 pub enum CycleDirection {
     Previous,
     Next,
-}
-
-pub struct Settings {
-    pub default_layout_idx: usize,
-    pub window_padding: i32,
-    pub edge_padding: i32,
-    pub disable_rounding: bool,
-    pub disable_unfocused_border: bool,
-    pub focused_border_colour: COLORREF,
-    pub unfocused_border_colour: COLORREF,
-    pub floating_window_default_w_ratio: f64,
-    pub floating_window_default_h_ratio: f64,
-    pub new_window_retries: i32,
-}
-
-impl Settings {
-    fn get_unfocused_border_colour(&self) -> COLORREF {
-        if self.disable_unfocused_border {
-            return COLORREF(DWMWA_COLOR_NONE);
-        } else {
-            return self.unfocused_border_colour;
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -112,14 +89,14 @@ pub struct WindowManager {
     ignored_combinations: std::collections::HashSet<(GUID, *mut core::ffi::c_void)>,
     ignored_windows: std::collections::HashSet<*mut core::ffi::c_void>,
     desktop_switching_state: DesktopSwitchingState,
-    settings: Settings,
+    settings: settings::Settings,
     window_rules: window_rules::WindowRules,
     restart_requested: bool,
 }
 
 impl WindowManager {
     pub fn new(
-        settings: Settings,
+        settings: settings::Settings,
         window_rules: window_rules::WindowRules,
         existing_event_hook: Option<HWINEVENTHOOK>,
         existing_vd_manager: Option<IVirtualDesktopManager>,
@@ -233,11 +210,11 @@ impl WindowManager {
         &mut self.layouts
     }
 
-    pub fn get_settings(&self) -> &Settings {
+    pub fn get_settings(&self) -> &settings::Settings {
         &self.settings
     }
 
-    pub fn get_settings_mut(&mut self) -> &mut Settings {
+    pub fn get_settings_mut(&mut self) -> &mut settings::Settings {
         &mut self.settings
     }
 

@@ -1,23 +1,45 @@
-use crate::directories::*;
+use crate::{directories::*, util};
 use himewm_layout::{layout::*, user_layout::*};
 
-pub fn initialize_layouts() -> Option<Vec<(std::path::PathBuf, Layout)>> {
+pub fn initialize_layouts(
+    warnings_string: &mut String,
+) -> Option<Vec<(std::path::PathBuf, Layout)>> {
     let mut ret = Vec::new();
     let dirs = Directories::new();
     for entry_result in std::fs::read_dir(dirs.layouts_dir).unwrap() {
         match entry_result {
             Ok(entry) => match std::fs::read(entry.path()) {
                 Ok(byte_vector) => {
+                    let layout_name = std::path::Path::new(&entry.file_name()).with_extension("");
                     let user_layout: UserLayout =
                         match serde_json::from_slice(byte_vector.as_slice()) {
                             Ok(val) => val,
-                            Err(_) => continue,
+                            Err(e) => {
+                                util::add_to_message(
+                                    warnings_string,
+                                    &format!(
+                                        "Warning: An error occurred when parsing layout {}:\n{}",
+                                        layout_name.display(),
+                                        e
+                                    ),
+                                );
+                                continue;
+                            }
                         };
                     let layout = match Layout::try_from(user_layout) {
                         Ok(l) => l,
-                        Err(_) => continue,
+                        Err(e) => {
+                            util::add_to_message(
+                                warnings_string,
+                                &format!(
+                                    "Warning: An error occurred when parsing layout {}:\n{}",
+                                    layout_name.display(),
+                                    e
+                                ),
+                            );
+                            continue;
+                        }
                     };
-                    let layout_name = std::path::Path::new(&entry.file_name()).with_extension("");
                     ret.push((layout_name, layout));
                 }
                 Err(_) => continue,

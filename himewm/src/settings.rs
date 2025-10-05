@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use windows::Win32::{Foundation::COLORREF, Graphics::Dwm::DWMWA_COLOR_DEFAULT};
+use windows::Win32::{
+    Foundation::COLORREF,
+    Graphics::Dwm::{DWMWA_COLOR_DEFAULT, DWMWA_COLOR_NONE},
+};
 
 #[derive(Deserialize, Serialize)]
 struct LayoutSettings {
@@ -88,7 +91,7 @@ impl UserSettings {
     pub fn to_settings(
         &self,
         layout_idx_map: &std::collections::HashMap<String, usize>,
-    ) -> crate::wm::Settings {
+    ) -> Settings {
         let mut idx = 0;
         if self.layout_settings.default_layout != std::path::Path::new("") {
             if let Some(i) =
@@ -97,7 +100,7 @@ impl UserSettings {
                 idx = *i;
             }
         }
-        return crate::wm::Settings {
+        return Settings {
             default_layout_idx: idx,
             window_padding: self.layout_settings.window_padding,
             edge_padding: self.layout_settings.edge_padding,
@@ -113,6 +116,29 @@ impl UserSettings {
             floating_window_default_h_ratio: self.misc_settings.floating_window_default_h_ratio,
             new_window_retries: self.advanced_settings.new_window_retries,
         };
+    }
+}
+
+pub struct Settings {
+    pub default_layout_idx: usize,
+    pub window_padding: i32,
+    pub edge_padding: i32,
+    pub disable_rounding: bool,
+    pub disable_unfocused_border: bool,
+    pub focused_border_colour: COLORREF,
+    pub unfocused_border_colour: COLORREF,
+    pub floating_window_default_w_ratio: f64,
+    pub floating_window_default_h_ratio: f64,
+    pub new_window_retries: i32,
+}
+
+impl Settings {
+    pub fn get_unfocused_border_colour(&self) -> COLORREF {
+        if self.disable_unfocused_border {
+            return COLORREF(DWMWA_COLOR_NONE);
+        } else {
+            return self.unfocused_border_colour;
+        }
     }
 }
 
