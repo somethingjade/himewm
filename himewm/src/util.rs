@@ -2,6 +2,7 @@ use crate::windows_api;
 use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
 pub enum MessageType {
+    None,
     Warning,
     Error,
 }
@@ -20,6 +21,9 @@ pub fn get_console_hwnd() -> HWND {
 }
 
 pub fn display_message(console_hwnd: HWND, message_type: &MessageType, message: &str) {
+    if let MessageType::None = message_type {
+        return;
+    }
     let _clear_console_window = std::process::Command::new("cmd")
         .args(["/c", "cls"])
         .status();
@@ -27,8 +31,8 @@ pub fn display_message(console_hwnd: HWND, message_type: &MessageType, message: 
     let _set_foreground_window = windows_api::set_foreground_window(console_hwnd);
     println!("{}", message);
     let prompt_str = match message_type {
-        MessageType::Warning => "Press ENTER to continue",
         MessageType::Error => "Press ENTER to exit",
+        _ => "Press ENTER to continue",
     };
     println!("");
     println!("{}", prompt_str);

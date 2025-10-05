@@ -33,17 +33,13 @@ fn main() {
     let mut first_iteration = true;
     while first_iteration || windows_api::get_message(&mut msg, None, 0, 0).as_bool() {
         first_iteration = false;
+        let _translate_message = windows_api::translate_message(&msg);
+        windows_api::dispatch_message(&msg);
         match &mut window_manager {
             Some(wm) if !wm.restart_requested() => {
                 wm_message_handler::handle_message(msg, wm);
             }
             _ => {
-                let mut existing_event_hook = None;
-                let mut existing_vd_manager = None;
-                if let Some(wm) = window_manager {
-                    existing_vd_manager = Some(wm.get_virtual_desktop_manager().to_owned());
-                    existing_event_hook = Some(wm.get_event_hook());
-                }
                 let user_config::UserConfig {
                     config:
                         user_config::Config {
@@ -60,32 +56,43 @@ fn main() {
                 }
                 keybinds::register_hotkeys(&keybinds, &mut warnings);
                 previous_keybinds = Some(keybinds);
-                let mut message_type = util::MessageType::Warning;
+                let mut message_type = util::MessageType::None;
                 let mut message = String::new();
-                util::add_to_message(&mut message, &warnings);
+                if !warnings.is_empty() {
+                    util::add_to_message(&mut message, &warnings);
+                    message_type = util::MessageType::Warning;
+                }
                 if !errors.is_empty() {
                     util::add_to_message(&mut message, &errors);
                     message_type = util::MessageType::Error;
                 }
                 if !message.is_empty() {
                     util::display_message(console_hwnd, &message_type, &message);
-                    if let util::MessageType::Error = message_type {
+                }
+                match message_type {
+                    util::MessageType::Error => {
                         windows_api::post_quit_message(0);
                     }
-                }
-                window_manager = Some(wm::WindowManager::new(
-                    settings,
-                    window_rules,
-                    existing_event_hook,
-                    existing_vd_manager,
-                ));
-                if let Some(wm) = &mut window_manager {
-                    wm.initialize(layouts);
+                    _ => {
+                        let mut existing_event_hook = None;
+                        let mut existing_vd_manager = None;
+                        if let Some(wm) = window_manager {
+                            existing_vd_manager = Some(wm.get_virtual_desktop_manager().to_owned());
+                            existing_event_hook = Some(wm.get_event_hook());
+                        }
+                        window_manager = Some(wm::WindowManager::new(
+                            settings,
+                            window_rules,
+                            existing_event_hook,
+                            existing_vd_manager,
+                        ));
+                        if let Some(wm) = &mut window_manager {
+                            wm.initialize(layouts);
+                        }
+                    }
                 }
             }
         }
-        let _translate_message = windows_api::translate_message(&msg);
-        windows_api::dispatch_message(&msg);
     }
     if let Some(wm) = window_manager {
         wm.exit();
