@@ -6,8 +6,6 @@
   </b>
 </p>
 
-![screenshot of himewm in action](/embeds/screenshot.png)
-
 # About
 himewm is a dynamic tiling window manager for Windows 11 focused around the use of custom, user-defined layouts. Being designed to work as an extension to the native window management features in Windows, himewm has a fairly minimal feature set; its purpose is to tile windows with minimal bloat. 
 
