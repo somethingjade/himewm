@@ -72,11 +72,15 @@ impl<T> VariantsContainer<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn get(&self, idx: &[usize]) -> VariantsContainerReturn<T> {
         let mut current = VariantsContainerReturn::Container(self);
         for i in idx {
             let current_layer = match current {
-                VariantsContainerReturn::Container(container) if container.len() > 0 => container,
+                VariantsContainerReturn::Container(container) if !container.is_empty() => container,
                 _ => {
                     break;
                 }
@@ -102,7 +106,7 @@ impl<T> VariantsContainer<T> {
         let mut current = VariantsContainerReturnMut::Container(self);
         for i in idx {
             let current_layer = match current {
-                VariantsContainerReturnMut::Container(container) if container.len() > 0 => {
+                VariantsContainerReturnMut::Container(container) if !container.is_empty() => {
                     container
                 }
                 _ => {
