@@ -30,8 +30,8 @@ pub enum EndBehaviourType {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EndBehaviour {
-    position_idx: usize,
     from: Option<Vec<position::Position>>,
+    position_idx: usize,
     behaviour: EndBehaviourType,
 }
 
