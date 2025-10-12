@@ -208,50 +208,49 @@ impl Variant {
                         false
                     }
                 };
+                let last_idx = self.positions.len() - 1;
                 match direction {
                     Direction::Horizontal => {
-                        let w = (self.positions[self.positions.len() - 1]
-                            [self.end_behaviour.position_idx]
-                            .w())
-                            / (self.positions.len()
-                                - self.positions[self.positions.len() - 1].len()
-                                + 1) as i32;
-                        while self.positions[self.positions.len() - 1].len() < self.positions.len()
-                        {
+                        let w = (self.positions[last_idx][self.end_behaviour.position_idx].w())
+                            / (self.positions.len() - self.positions[last_idx].len() + 1) as i32;
+                        while self.positions[last_idx].len() < self.positions.len() {
                             self.split(
-                                self.positions.len() - 1,
+                                last_idx,
                                 self.end_behaviour.position_idx,
                                 SplitDirection::Horizontal(w),
                             );
                         }
+                        if self.positions[last_idx][self.end_behaviour.position_idx].w()
+                            != self.positions[last_idx][last_idx].w()
+                        {
+                            self.positions[last_idx]
+                                .swap(self.end_behaviour.position_idx, last_idx);
+                        }
                     }
                     Direction::Vertical => {
-                        let h = (self.positions[self.positions.len() - 1]
-                            [self.end_behaviour.position_idx]
-                            .h())
-                            / (self.positions.len()
-                                - self.positions[self.positions.len() - 1].len()
-                                + 1) as i32;
-                        while self.positions[self.positions.len() - 1].len() < self.positions.len()
-                        {
+                        let h = (self.positions[last_idx][self.end_behaviour.position_idx].h())
+                            / (self.positions.len() - self.positions[last_idx].len() + 1) as i32;
+                        while self.positions[last_idx].len() < self.positions.len() {
                             self.split(
-                                self.positions.len() - 1,
+                                last_idx,
                                 self.end_behaviour.position_idx,
                                 SplitDirection::Vertical(h),
                             );
                         }
+                        if self.positions[last_idx][self.end_behaviour.position_idx].h()
+                            != self.positions[last_idx][last_idx].h()
+                        {
+                            self.positions[last_idx]
+                                .swap(self.end_behaviour.position_idx, last_idx);
+                        }
                     }
                 }
-                let last_idx = self.positions.len() - 1;
                 if used_from {
-                    for i in (self.end_behaviour.from.to_owned().unwrap().len()
-                        ..(self.positions.len() - 1))
-                        .rev()
-                    {
+                    for i in (self.end_behaviour.from.to_owned().unwrap().len()..(last_idx)).rev() {
                         self.positions[last_idx].swap(self.end_behaviour.position_idx, i);
                     }
                 } else {
-                    for i in (self.manual_positions_until..(self.positions.len() - 1)).rev() {
+                    for i in (self.manual_positions_until..(last_idx)).rev() {
                         self.positions[last_idx].swap(self.end_behaviour.position_idx, i);
                     }
                 }
