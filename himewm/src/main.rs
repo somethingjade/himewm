@@ -77,8 +77,8 @@ fn main() {
                         let mut existing_event_hook = None;
                         let mut existing_vd_manager = None;
                         if let Some(wm) = window_manager {
-                            existing_vd_manager = Some(wm.get_virtual_desktop_manager().to_owned());
-                            existing_event_hook = Some(wm.get_event_hook());
+                            existing_vd_manager = Some(wm.virtual_desktop_manager().to_owned());
+                            existing_event_hook = Some(wm.event_hook());
                         }
                         window_manager = Some(wm::WindowManager::new(
                             settings,

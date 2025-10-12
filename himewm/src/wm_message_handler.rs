@@ -8,7 +8,7 @@ pub fn handle_message(msg: MSG, wm: &mut wm::WindowManager) {
         }
         wm_messages::messages::WINDOW_RESTORED
             if wm
-                .get_window_info_hashmap()
+                .window_info()
                 .contains_key(&(msg.wParam.0 as *mut core::ffi::c_void)) =>
         {
             wm.manage_window(HWND(msg.wParam.0 as *mut core::ffi::c_void));

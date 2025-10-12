@@ -35,6 +35,16 @@ pub struct EndBehaviour {
     behaviour: EndBehaviourType,
 }
 
+impl EndBehaviour {
+    pub fn from(&self) -> &Option<Vec<position::Position>> {
+        &self.from
+    }
+
+    pub fn from_mut(&mut self) -> &mut Option<Vec<position::Position>> {
+        &mut self.from
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RepeatingSplit {
     direction: Direction,
@@ -76,12 +86,20 @@ impl From<user_layout::UserVariant> for Variant {
 }
 
 impl Variant {
-    pub fn get_positions(&self) -> &Vec<Vec<position::Position>> {
+    pub fn positions(&self) -> &Vec<Vec<position::Position>> {
         &self.positions
     }
 
-    pub fn get_positions_mut(&mut self) -> &mut Vec<Vec<position::Position>> {
+    pub fn positions_mut(&mut self) -> &mut Vec<Vec<position::Position>> {
         &mut self.positions
+    }
+
+    pub fn end_behaviour(&self) -> &EndBehaviour {
+        &self.end_behaviour
+    }
+
+    pub fn end_behaviour_mut(&mut self) -> &mut EndBehaviour {
+        &mut self.end_behaviour
     }
 
     pub fn update(

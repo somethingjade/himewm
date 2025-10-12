@@ -28,7 +28,7 @@ pub fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
     monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
     let _ = windows_api::get_monitor_info(hmonitor, &mut monitor_info);
     let monitor_rect = Position::from(monitor_info.rcWork);
-    let variant_monitor_rect = layout.get_monitor_rect();
+    let variant_monitor_rect = layout.monitor_rect();
     if &monitor_rect == variant_monitor_rect {
         return None;
     }
@@ -36,28 +36,30 @@ pub fn convert_layout_for_monitor(layout: &Layout, hmonitor: HMONITOR) -> Option
     let original_height = variant_monitor_rect.h() as f64;
     let new_width = monitor_rect.w() as f64;
     let new_height = monitor_rect.h() as f64;
+    let convert_position = |position: &mut Position| {
+        position.set_x(position.x() - variant_monitor_rect.x());
+        position.set_y(position.y() - variant_monitor_rect.y());
+        if new_width != original_width {
+            position.set_x(((position.x() as f64 * new_width) / original_width).round() as i32);
+            position.set_w(((position.w() as f64 * new_width) / original_width).round() as i32);
+        }
+        if new_height != original_height {
+            position.set_y(((position.y() as f64 * new_height) / original_height).round() as i32);
+            position.set_h(((position.h() as f64 * new_height) / original_height).round() as i32);
+        }
+        position.set_x(position.x() + monitor_rect.x());
+        position.set_y(position.y() + monitor_rect.y());
+    };
     let mut ret = layout.clone();
-    ret.get_variants_mut().callback_all(|variant| {
-        for positions in variant.get_positions_mut().iter_mut() {
+    ret.variants_mut().callback_all(|variant| {
+        for positions in variant.positions_mut().iter_mut() {
             for position in positions {
-                position.set_x(position.x() - variant_monitor_rect.x());
-                position.set_y(position.y() - variant_monitor_rect.y());
-                if new_width != original_width {
-                    position
-                        .set_x(((position.x() as f64 * new_width) / original_width).round() as i32);
-                    position
-                        .set_w(((position.w() as f64 * new_width) / original_width).round() as i32);
-                }
-                if new_height != original_height {
-                    position.set_y(
-                        ((position.y() as f64 * new_height) / original_height).round() as i32,
-                    );
-                    position.set_h(
-                        ((position.h() as f64 * new_height) / original_height).round() as i32,
-                    );
-                }
-                position.set_x(position.x() + monitor_rect.x());
-                position.set_y(position.y() + monitor_rect.y());
+                convert_position(position);
+            }
+        }
+        if let Some(positions) = variant.end_behaviour_mut().from_mut() {
+            for position in positions {
+                convert_position(position);
             }
         }
     });

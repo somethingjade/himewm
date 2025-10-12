@@ -113,11 +113,10 @@ pub extern "system" fn event_handler(
 
 pub unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let wm = &mut *(lparam.0 as *mut wm::WindowManager);
-    let desktop_id =
-        match windows_api::get_window_desktop_id(wm.get_virtual_desktop_manager(), hwnd) {
-            Ok(guid) if guid != GUID::zeroed() => guid,
-            _ => return true.into(),
-        };
+    let desktop_id = match windows_api::get_window_desktop_id(wm.virtual_desktop_manager(), hwnd) {
+        Ok(guid) if guid != GUID::zeroed() => guid,
+        _ => return true.into(),
+    };
     let monitor_handle = windows_api::monitor_from_window(hwnd, MONITOR_DEFAULTTONULL);
     if monitor_handle.is_invalid()
         || !windows_api::is_window_visible(hwnd).as_bool()
@@ -136,7 +135,7 @@ pub unsafe extern "system" fn enum_display_monitors_callback(
     dw_data: LPARAM,
 ) -> BOOL {
     let wm = &mut *(dw_data.0 as *mut wm::WindowManager);
-    wm.get_monitor_vec_mut().push(hmonitor);
-    wm.get_layouts_hashmap_mut().insert(hmonitor.0, Vec::new());
+    wm.monitor_handles_mut().push(hmonitor);
+    wm.layouts_mut().insert(hmonitor.0, Vec::new());
     return true.into();
 }

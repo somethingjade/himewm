@@ -16,7 +16,7 @@ impl Layout {
         }
     }
 
-    pub fn get_monitor_rect(&self) -> &position::Position {
+    pub fn monitor_rect(&self) -> &position::Position {
         &self.monitor_rect
     }
 
@@ -24,13 +24,11 @@ impl Layout {
         self.monitor_rect = position;
     }
 
-    pub fn get_variants(&self) -> &variants_container::VariantsContainer<variant::Variant> {
+    pub fn variants(&self) -> &variants_container::VariantsContainer<variant::Variant> {
         &self.variants
     }
 
-    pub fn get_variants_mut(
-        &mut self,
-    ) -> &mut variants_container::VariantsContainer<variant::Variant> {
+    pub fn variants_mut(&mut self) -> &mut variants_container::VariantsContainer<variant::Variant> {
         &mut self.variants
     }
 

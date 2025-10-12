@@ -170,51 +170,47 @@ impl WindowManager {
         self.update();
     }
 
-    pub fn get_event_hook(self) -> HWINEVENTHOOK {
+    pub fn event_hook(self) -> HWINEVENTHOOK {
         self.event_hook
     }
 
-    pub fn get_virtual_desktop_manager(&self) -> &IVirtualDesktopManager {
+    pub fn virtual_desktop_manager(&self) -> &IVirtualDesktopManager {
         &self.virtual_desktop_manager
     }
 
-    pub fn get_monitor_vec(&self) -> &Vec<HMONITOR> {
+    pub fn monitor_handles(&self) -> &Vec<HMONITOR> {
         &self.monitor_handles
     }
 
-    pub fn get_monitor_vec_mut(&mut self) -> &mut Vec<HMONITOR> {
+    pub fn monitor_handles_mut(&mut self) -> &mut Vec<HMONITOR> {
         &mut self.monitor_handles
     }
 
-    pub fn get_window_info_hashmap(
-        &self,
-    ) -> &std::collections::HashMap<*mut core::ffi::c_void, WindowInfo> {
+    pub fn window_info(&self) -> &std::collections::HashMap<*mut core::ffi::c_void, WindowInfo> {
         &self.window_info
     }
 
-    pub fn get_window_info_hashmap_mut(
+    pub fn window_info_mut(
         &mut self,
     ) -> &mut std::collections::HashMap<*mut core::ffi::c_void, WindowInfo> {
         &mut self.window_info
     }
 
-    pub fn get_layouts_hashmap(
-        &self,
-    ) -> &std::collections::HashMap<*mut core::ffi::c_void, Vec<Layout>> {
+    pub fn layouts(&self) -> &std::collections::HashMap<*mut core::ffi::c_void, Vec<Layout>> {
         &self.layouts
     }
 
-    pub fn get_layouts_hashmap_mut(
+    pub fn layouts_mut(
         &mut self,
     ) -> &mut std::collections::HashMap<*mut core::ffi::c_void, Vec<Layout>> {
         &mut self.layouts
     }
 
-    pub fn get_settings(&self) -> &settings::Settings {
+    pub fn settings(&self) -> &settings::Settings {
         &self.settings
     }
 
-    pub fn get_settings_mut(&mut self) -> &mut settings::Settings {
+    pub fn settings_mut(&mut self) -> &mut settings::Settings {
         &mut self.settings
     }
 
@@ -815,7 +811,7 @@ impl WindowManager {
             workspace.variant_idx.push(0);
         }
         let variants_len = match self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx]
-            .get_variants()
+            .variants()
             .get(&workspace.variant_idx[0..idx])
         {
             himewm_layout::variants_container::VariantsContainerReturn::Container(container) => {
@@ -1591,7 +1587,7 @@ impl WindowManager {
             .get(&(desktop_id, monitor_handle.0))
             .unwrap();
         let monitor_rect =
-            self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].get_monitor_rect();
+            self.layouts.get(&monitor_handle.0).unwrap()[workspace.layout_idx].monitor_rect();
         let w = ((monitor_rect.w() as f64) * self.settings.floating_window_default_w_ratio).round()
             as i32;
         let h = ((monitor_rect.h() as f64) * self.settings.floating_window_default_h_ratio).round()
