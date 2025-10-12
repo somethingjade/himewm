@@ -3,23 +3,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Direction {
-    Horizontal,
-    Vertical,
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
 impl Direction {
     pub fn other(&self) -> Self {
         match self {
-            Direction::Horizontal => Direction::Vertical,
-            Direction::Vertical => Direction::Horizontal,
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
         }
     }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum SplitDirection {
-    Horizontal(i32),
-    Vertical(i32),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -50,16 +48,14 @@ pub struct RepeatingSplit {
     direction: Direction,
     ratio: f64,
     offset: usize,
-    swap: bool,
 }
 
 impl RepeatingSplit {
-    pub fn new(direction: Direction, ratio: f64, offset: usize, swap: bool) -> Self {
+    pub fn new(direction: Direction, ratio: f64, offset: usize) -> Self {
         RepeatingSplit {
             direction,
             ratio,
             offset,
-            swap,
         }
     }
 }
@@ -139,129 +135,148 @@ impl Variant {
         }
     }
 
-    pub fn split(&mut self, i: usize, j: usize, direction: SplitDirection) {
+    pub fn split(&mut self, i: usize, j: usize, direction: Direction, at: i32) {
         let position = &mut self.positions[i][j];
         let new_position;
         match direction {
-            SplitDirection::Horizontal(w) => {
-                if w < position.w() / 2 {
-                    new_position =
-                        position::Position::new(position.x(), position.y(), w, position.h());
-                    position.set_x(position.x() + w);
-                } else {
-                    new_position =
-                        position::Position::new(position.x() + w, position.y(), w, position.h());
-                }
-                position.set_w(position.w() - w);
+            Direction::Up => {
+                new_position =
+                    position::Position::new(position.x(), position.y(), position.w(), at);
+                position.set_y(position.y() + at);
+                position.set_h(position.h() - at);
             }
-            SplitDirection::Vertical(h) => {
-                if h < position.h() / 2 {
-                    new_position =
-                        position::Position::new(position.x(), position.y(), position.w(), h);
-                    position.set_y(position.y() + h);
-                } else {
-                    new_position =
-                        position::Position::new(position.x(), position.y() + h, position.w(), h);
-                }
-                position.set_h(position.h() - h);
+            Direction::Down => {
+                new_position = position::Position::new(
+                    position.x(),
+                    position.y() + at,
+                    position.w(),
+                    position.h() - at,
+                );
+                position.set_h(at);
+            }
+            Direction::Left => {
+                new_position =
+                    position::Position::new(position.x(), position.y(), at, position.h());
+                position.set_x(position.x() + at);
+                position.set_w(position.w() - at);
+            }
+            Direction::Right => {
+                new_position = position::Position::new(
+                    position.x() + at,
+                    position.y(),
+                    position.w() - at,
+                    position.h(),
+                );
+                position.set_w(at);
             }
         }
         self.positions[i].push(new_position);
     }
 
     fn apply_repeating_split(&mut self, split: &RepeatingSplit, split_idx: usize) {
-        match split.direction {
-            Direction::Horizontal => {
-                let w = (split.ratio
-                    * (self.positions[self.positions.len() - 1][split_idx].w() as f64))
-                    .round() as i32;
-                self.split(
-                    self.positions.len() - 1,
-                    split_idx,
-                    SplitDirection::Horizontal(w),
-                );
-            }
-            Direction::Vertical => {
-                let h = (split.ratio
-                    * (self.positions[self.positions.len() - 1][split_idx].h() as f64))
-                    .round() as i32;
-                self.split(
-                    self.positions.len() - 1,
-                    split_idx,
-                    SplitDirection::Vertical(h),
-                );
-            }
-        }
+        let at = match split.direction {
+            Direction::Up | Direction::Down => (split.ratio
+                * (self.positions[self.positions.len() - 1][split_idx].h() as f64))
+                .round() as i32,
+            Direction::Left | Direction::Right => (split.ratio
+                * (self.positions[self.positions.len() - 1][split_idx].w() as f64))
+                .round() as i32,
+        };
+        self.split(
+            self.positions.len() - 1,
+            split_idx,
+            split.direction.to_owned(),
+            at,
+        );
     }
 
     pub fn extend(&mut self) {
         match self.end_behaviour.behaviour.to_owned() {
             EndBehaviourType::Directional { direction } => {
-                let used_from = match &self.end_behaviour.from {
+                match &self.end_behaviour.from {
                     Some(positions) => {
                         self.positions.push(positions.clone());
-                        true
                     }
                     None => {
                         self.positions
                             .push(self.positions[self.manual_positions_until - 1].clone());
-                        false
                     }
                 };
+                let mut first_iteration = true;
                 let last_idx = self.positions.len() - 1;
                 match direction {
-                    Direction::Horizontal => {
-                        let w = (self.positions[last_idx][self.end_behaviour.position_idx].w())
-                            / (self.positions.len() - self.positions[last_idx].len() + 1) as i32;
+                    Direction::Up => {
+                        let h = (self.positions[last_idx][self.end_behaviour.position_idx].h()
+                            as f64
+                            / (self.positions.len() - self.positions[last_idx].len() + 1) as f64)
+                            .round() as i32;
                         while self.positions[last_idx].len() < self.positions.len() {
-                            self.split(
-                                last_idx,
-                                self.end_behaviour.position_idx,
-                                SplitDirection::Horizontal(w),
-                            );
-                        }
-                        if self.positions[last_idx][self.end_behaviour.position_idx].w()
-                            != self.positions[last_idx][last_idx].w()
-                        {
-                            self.positions[last_idx]
-                                .swap(self.end_behaviour.position_idx, last_idx);
+                            let split_idx = if first_iteration {
+                                self.end_behaviour.position_idx
+                            } else {
+                                self.positions[last_idx].len() - 1
+                            };
+                            let at = self.positions[last_idx][split_idx].h() - h;
+                            self.split(last_idx, split_idx, Direction::Up, at);
+                            first_iteration = false;
                         }
                     }
-                    Direction::Vertical => {
-                        let h = (self.positions[last_idx][self.end_behaviour.position_idx].h())
-                            / (self.positions.len() - self.positions[last_idx].len() + 1) as i32;
+                    Direction::Down => {
+                        let h = (self.positions[last_idx][self.end_behaviour.position_idx].h()
+                            as f64
+                            / (self.positions.len() - self.positions[last_idx].len() + 1) as f64)
+                            .round() as i32;
                         while self.positions[last_idx].len() < self.positions.len() {
-                            self.split(
-                                last_idx,
-                                self.end_behaviour.position_idx,
-                                SplitDirection::Vertical(h),
-                            );
-                        }
-                        if self.positions[last_idx][self.end_behaviour.position_idx].h()
-                            != self.positions[last_idx][last_idx].h()
-                        {
-                            self.positions[last_idx]
-                                .swap(self.end_behaviour.position_idx, last_idx);
+                            let split_idx = if first_iteration {
+                                self.end_behaviour.position_idx
+                            } else {
+                                self.positions[last_idx].len() - 1
+                            };
+                            self.split(last_idx, split_idx, Direction::Down, h);
+                            first_iteration = false;
                         }
                     }
-                }
-                if used_from {
-                    for i in (self.end_behaviour.from.to_owned().unwrap().len()..(last_idx)).rev() {
-                        self.positions[last_idx].swap(self.end_behaviour.position_idx, i);
+                    Direction::Left => {
+                        let w = (self.positions[last_idx][self.end_behaviour.position_idx].w()
+                            as f64
+                            / (self.positions.len() - self.positions[last_idx].len() + 1) as f64)
+                            .round() as i32;
+                        while self.positions[last_idx].len() < self.positions.len() {
+                            let split_idx = if first_iteration {
+                                self.end_behaviour.position_idx
+                            } else {
+                                self.positions[last_idx].len() - 1
+                            };
+                            let at = self.positions[last_idx][split_idx].w() - w;
+                            self.split(last_idx, split_idx, Direction::Left, at);
+                            first_iteration = false;
+                        }
                     }
-                } else {
-                    for i in (self.manual_positions_until..(last_idx)).rev() {
-                        self.positions[last_idx].swap(self.end_behaviour.position_idx, i);
+                    Direction::Right => {
+                        let w = (self.positions[last_idx][self.end_behaviour.position_idx].w()
+                            as f64
+                            / (self.positions.len() - self.positions[last_idx].len() + 1) as f64)
+                            .round() as i32;
+                        while self.positions[last_idx].len() < self.positions.len() {
+                            let split_idx = if first_iteration {
+                                self.end_behaviour.position_idx
+                            } else {
+                                self.positions[last_idx].len() - 1
+                            };
+                            self.split(last_idx, split_idx, Direction::Right, w);
+                            first_iteration = false;
+                        }
                     }
                 }
             }
             EndBehaviourType::Repeating { splits } => match &self.end_behaviour.from {
                 Some(positions) if self.positions.len() == self.manual_positions_until => {
                     self.positions.push(positions.clone());
+                    let last_idx = self.positions.len() - 1;
                     let mut repeating_split_idx = 0;
                     let mut split_idx = self.end_behaviour.position_idx;
                     let mut split = &splits[repeating_split_idx];
-                    while self.positions[self.positions.len() - 1].len() < self.positions.len() {
+                    while self.positions[last_idx].len() < self.positions.len() {
                         self.apply_repeating_split(split, split_idx);
                         repeating_split_idx = if repeating_split_idx == splits.len() - 1 {
                             0
@@ -270,11 +285,9 @@ impl Variant {
                         };
                         split = &splits[repeating_split_idx];
                         split_idx = if repeating_split_idx == 0 {
-                            self.positions[self.positions.len() - 1].len() - 1 - splits.len()
-                                + split.offset
+                            self.positions[last_idx].len() - 1 - splits.len() + split.offset
                         } else {
-                            self.positions[self.positions.len() - 1].len() - 1 - repeating_split_idx
-                                + split.offset
+                            self.positions[last_idx].len() - 1 - repeating_split_idx + split.offset
                         };
                     }
                 }
@@ -292,11 +305,6 @@ impl Variant {
                     self.positions
                         .push(self.positions[self.positions.len() - 1].clone());
                     self.apply_repeating_split(split, split_idx);
-                    if split.swap {
-                        let last_idx = self.positions.len() - 1;
-                        let swap_idx = self.positions[last_idx].len() - 1;
-                        self.positions[last_idx].swap(split_idx, swap_idx);
-                    }
                 }
             },
         }
