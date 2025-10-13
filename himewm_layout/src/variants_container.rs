@@ -76,7 +76,7 @@ impl<T> VariantsContainer<T> {
         self.len() == 0
     }
 
-    pub fn get(&self, idx: &[usize]) -> VariantsContainerReturn<T> {
+    pub fn get(&self, idx: &[usize]) -> VariantsContainerReturn<'_, T> {
         let mut current = VariantsContainerReturn::Container(self);
         for i in idx {
             let current_layer = match current {
@@ -102,7 +102,7 @@ impl<T> VariantsContainer<T> {
         return current;
     }
 
-    pub fn get_mut(&mut self, idx: &[usize]) -> VariantsContainerReturnMut<T> {
+    pub fn get_mut(&mut self, idx: &[usize]) -> VariantsContainerReturnMut<'_, T> {
         let mut current = VariantsContainerReturnMut::Container(self);
         for i in idx {
             let current_layer = match current {
