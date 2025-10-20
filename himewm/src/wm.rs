@@ -1,4 +1,13 @@
-use crate::{settings, window_rules, windows_api, wm_cb, wm_messages, wm_util};
+use crate::{
+    settings,
+    window_rules,
+    windows_api,
+    // wm::{
+    //     cb,
+    //     messages,
+    //     util
+    // }
+};
 use himewm_layout::layout::*;
 use windows::{
     core::*,
@@ -9,6 +18,11 @@ use windows::{
         UI::{Accessibility::*, Shell::*, WindowsAndMessaging::*},
     },
 };
+
+pub mod cb;
+pub mod message_handler;
+pub mod messages;
+pub mod util;
 
 pub enum CycleDirection {
     Previous,
@@ -107,7 +121,7 @@ impl WindowManager {
                 EVENT_MIN,
                 EVENT_MAX,
                 None,
-                Some(wm_cb::event_handler),
+                Some(cb::event_handler),
                 0,
                 0,
                 WINEVENT_OUTOFCONTEXT,
@@ -144,13 +158,13 @@ impl WindowManager {
         let _ = windows_api::enum_display_monitors(
             None,
             None,
-            Some(wm_cb::enum_display_monitors_callback),
+            Some(cb::enum_display_monitors_callback),
             LPARAM(self as *mut WindowManager as isize),
         );
         for layout in layouts {
             for (hmonitor, wm_layouts) in self.layouts.iter_mut() {
                 let mut layout =
-                    match wm_util::convert_layout_for_monitor(&layout, HMONITOR(*hmonitor)) {
+                    match util::convert_layout_for_monitor(&layout, HMONITOR(*hmonitor)) {
                         Some(val) => val,
                         None => layout.clone(),
                     };
@@ -159,7 +173,7 @@ impl WindowManager {
             }
         }
         let _ = windows_api::enum_windows(
-            Some(wm_cb::enum_windows_callback),
+            Some(cb::enum_windows_callback),
             LPARAM(self as *mut WindowManager as isize),
         );
         let foreground_window = windows_api::get_foreground_window();
@@ -221,7 +235,7 @@ impl WindowManager {
     pub fn manage_new_window(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
         self.window_info.insert(
             hwnd.0,
-            WindowInfo::new(guid, hmonitor, wm_util::is_restored(hwnd), 0),
+            WindowInfo::new(guid, hmonitor, util::is_restored(hwnd), 0),
         );
         let filter = Some(std::collections::HashSet::from([
             window_rules::FilterRule::Layout,
@@ -263,7 +277,7 @@ impl WindowManager {
         let monitor_handle;
         match self.window_info.get_mut(&hwnd.0) {
             Some(window_info) if window_info.restored => return,
-            Some(window_info) if wm_util::is_restored(hwnd) => {
+            Some(window_info) if util::is_restored(hwnd) => {
                 let idx = window_info.idx;
                 desktop_id = window_info.desktop_id;
                 monitor_handle = window_info.monitor_handle;
@@ -557,7 +571,7 @@ impl WindowManager {
         if ignored_combination {
             return;
         }
-        if !self.ignored_windows.contains(&hwnd.0) && wm_util::is_restored(hwnd) {
+        if !self.ignored_windows.contains(&hwnd.0) && util::is_restored(hwnd) {
             if let Some(workspace) = self.workspaces.get(&(desktop_id, monitor_handle.0)) {
                 for h in &workspace.window_handles {
                     let info = self.window_info.get(h).unwrap();
@@ -1330,7 +1344,7 @@ impl WindowManager {
         self.restart_requested = true;
         windows_api::post_message(
             None,
-            wm_messages::messages::RESTART_HIMEWM,
+            messages::messages::RESTART_HIMEWM,
             WPARAM::default(),
             LPARAM::default(),
         )
@@ -1502,7 +1516,7 @@ impl WindowManager {
         hwnd: HWND,
         filter: &Option<std::collections::HashSet<window_rules::FilterRule>>,
     ) -> Option<window_rules::Rule> {
-        match wm_util::get_window_title(hwnd) {
+        match util::get_window_title(hwnd) {
             Some(title) => {
                 for window_rule in &self.window_rules.title_window_rules {
                     if window_rule.regex.is_match(&title) {
@@ -1520,7 +1534,7 @@ impl WindowManager {
             }
             None => (),
         }
-        match wm_util::get_exe_name(hwnd) {
+        match util::get_exe_name(hwnd) {
             Some(name) => {
                 for window_rule in &self.window_rules.process_window_rules {
                     if window_rule.regex.is_match(&name) {

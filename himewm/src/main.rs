@@ -37,7 +37,7 @@ fn main() {
         windows_api::dispatch_message(&msg);
         match &mut window_manager {
             Some(wm) if !wm.restart_requested() => {
-                wm_message_handler::handle_message(msg, wm);
+                wm::message_handler::handle_message(msg, wm);
             }
             _ => {
                 let user_config::UserConfig {

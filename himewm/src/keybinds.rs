@@ -1,4 +1,4 @@
-use crate::{util, windows_api, wm_messages};
+use crate::{util, windows_api, wm};
 use serde::{Deserialize, Serialize};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
@@ -207,7 +207,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.focus_previous {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::FOCUS_PREVIOUS as i32,
+            wm::messages::hotkey_identifiers::FOCUS_PREVIOUS as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -223,7 +223,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.focus_next {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::FOCUS_NEXT as i32,
+            wm::messages::hotkey_identifiers::FOCUS_NEXT as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -239,7 +239,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.swap_previous {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::SWAP_PREVIOUS as i32,
+            wm::messages::hotkey_identifiers::SWAP_PREVIOUS as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -255,7 +255,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.swap_next {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::SWAP_NEXT as i32,
+            wm::messages::hotkey_identifiers::SWAP_NEXT as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -271,7 +271,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.layout_previous {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::LAYOUT_PREVIOUS as i32,
+            wm::messages::hotkey_identifiers::LAYOUT_PREVIOUS as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -287,7 +287,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.layout_next {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::LAYOUT_NEXT as i32,
+            wm::messages::hotkey_identifiers::LAYOUT_NEXT as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -303,7 +303,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.focus_previous_monitor {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32,
+            wm::messages::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -319,7 +319,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.focus_next_monitor {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::FOCUS_NEXT_MONITOR as i32,
+            wm::messages::hotkey_identifiers::FOCUS_NEXT_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -335,7 +335,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.move_to_previous_monitor {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR as i32,
+            wm::messages::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -351,7 +351,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.move_to_next_monitor {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::MOVE_TO_NEXT_MONITOR as i32,
+            wm::messages::hotkey_identifiers::MOVE_TO_NEXT_MONITOR as i32,
             keybind.modifiers,
             keybind.key,
         ) {
@@ -367,7 +367,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.grab_window {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::GRAB_WINDOW as i32,
+            wm::messages::hotkey_identifiers::GRAB_WINDOW as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
         ) {
@@ -383,7 +383,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.release_window {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::RELEASE_WINDOW as i32,
+            wm::messages::hotkey_identifiers::RELEASE_WINDOW as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
         ) {
@@ -399,7 +399,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.toggle_window {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::TOGGLE_WINDOW as i32,
+            wm::messages::hotkey_identifiers::TOGGLE_WINDOW as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
         ) {
@@ -415,7 +415,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.toggle_workspace {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::TOGGLE_WORKSPACE as i32,
+            wm::messages::hotkey_identifiers::TOGGLE_WORKSPACE as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
         ) {
@@ -431,7 +431,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.refresh_workspace {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::REFRESH_WORKSPACE as i32,
+            wm::messages::hotkey_identifiers::REFRESH_WORKSPACE as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
         ) {
@@ -447,7 +447,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     if let Ok(keybind) = &keybinds.restart_himewm {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            wm_messages::hotkey_identifiers::REQUEST_RESTART as i32,
+            wm::messages::hotkey_identifiers::REQUEST_RESTART as i32,
             keybind.modifiers | MOD_NOREPEAT,
             keybind.key,
         ) {
@@ -463,7 +463,7 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
     for variant_keybind in &keybinds.variant_keybinds {
         if let Err(e) = windows_api::register_hot_key(
             None,
-            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index) as i32,
+            (wm::messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index) as i32,
             variant_keybind.keybinds.previous.modifiers,
             variant_keybind.keybinds.previous.key,
         ) {
@@ -478,7 +478,8 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
         }
         if let Err(e) = windows_api::register_hot_key(
             None,
-            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index + 1) as i32,
+            (wm::messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index + 1)
+                as i32,
             variant_keybind.keybinds.next.modifiers,
             variant_keybind.keybinds.next.key,
         ) {
@@ -495,29 +496,31 @@ pub fn register_hotkeys(keybinds: &Keybinds, warnings_string: &mut String) {
 }
 
 pub fn unregister_hotkeys(keybinds: Keybinds, warnings_string: &mut String) {
-    for id in wm_messages::hotkey_identifiers::HOTKEY_IDENTIFIERS_START
-        ..wm_messages::hotkey_identifiers::VARIANT_START
+    for id in wm::messages::hotkey_identifiers::HOTKEY_IDENTIFIERS_START
+        ..wm::messages::hotkey_identifiers::VARIANT_START
     {
         if let Err(e) = windows_api::unregister_hot_key(None, id as i32) {
             let hotkey_str = match id {
-                wm_messages::hotkey_identifiers::FOCUS_PREVIOUS => "focus_previous",
-                wm_messages::hotkey_identifiers::FOCUS_NEXT => "focus_next",
-                wm_messages::hotkey_identifiers::SWAP_PREVIOUS => "swap_previous",
-                wm_messages::hotkey_identifiers::SWAP_NEXT => "swap_next",
-                wm_messages::hotkey_identifiers::LAYOUT_PREVIOUS => "layout_previous",
-                wm_messages::hotkey_identifiers::LAYOUT_NEXT => "layout_next",
-                wm_messages::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => "focus_previous_monitor",
-                wm_messages::hotkey_identifiers::FOCUS_NEXT_MONITOR => "focus_next_monitor",
-                wm_messages::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
+                wm::messages::hotkey_identifiers::FOCUS_PREVIOUS => "focus_previous",
+                wm::messages::hotkey_identifiers::FOCUS_NEXT => "focus_next",
+                wm::messages::hotkey_identifiers::SWAP_PREVIOUS => "swap_previous",
+                wm::messages::hotkey_identifiers::SWAP_NEXT => "swap_next",
+                wm::messages::hotkey_identifiers::LAYOUT_PREVIOUS => "layout_previous",
+                wm::messages::hotkey_identifiers::LAYOUT_NEXT => "layout_next",
+                wm::messages::hotkey_identifiers::FOCUS_PREVIOUS_MONITOR => {
+                    "focus_previous_monitor"
+                }
+                wm::messages::hotkey_identifiers::FOCUS_NEXT_MONITOR => "focus_next_monitor",
+                wm::messages::hotkey_identifiers::MOVE_TO_PREVIOUS_MONITOR => {
                     "move_to_previous_monitor"
                 }
-                wm_messages::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => "move_to_next_monitor",
-                wm_messages::hotkey_identifiers::GRAB_WINDOW => "grab_window",
-                wm_messages::hotkey_identifiers::RELEASE_WINDOW => "release_window",
-                wm_messages::hotkey_identifiers::TOGGLE_WINDOW => "toggle_window",
-                wm_messages::hotkey_identifiers::TOGGLE_WORKSPACE => "toggle_workspace",
-                wm_messages::hotkey_identifiers::REFRESH_WORKSPACE => "refresh_workspace",
-                wm_messages::hotkey_identifiers::REQUEST_RESTART => "request_restart",
+                wm::messages::hotkey_identifiers::MOVE_TO_NEXT_MONITOR => "move_to_next_monitor",
+                wm::messages::hotkey_identifiers::GRAB_WINDOW => "grab_window",
+                wm::messages::hotkey_identifiers::RELEASE_WINDOW => "release_window",
+                wm::messages::hotkey_identifiers::TOGGLE_WINDOW => "toggle_window",
+                wm::messages::hotkey_identifiers::TOGGLE_WORKSPACE => "toggle_workspace",
+                wm::messages::hotkey_identifiers::REFRESH_WORKSPACE => "refresh_workspace",
+                wm::messages::hotkey_identifiers::REQUEST_RESTART => "request_restart",
                 _ => continue,
             };
             util::add_to_message(
@@ -532,7 +535,7 @@ pub fn unregister_hotkeys(keybinds: Keybinds, warnings_string: &mut String) {
     }
     for variant_keybind in keybinds.variant_keybinds {
         let previous_id =
-            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index) as i32;
+            (wm::messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index) as i32;
         if let Err(e) = windows_api::unregister_hot_key(None, previous_id) {
             util::add_to_message(
                 warnings_string,
@@ -543,8 +546,9 @@ pub fn unregister_hotkeys(keybinds: Keybinds, warnings_string: &mut String) {
                 ),
             );
         }
-        let next_id =
-            (wm_messages::hotkey_identifiers::VARIANT_START + 2 * variant_keybind.index + 1) as i32;
+        let next_id = (wm::messages::hotkey_identifiers::VARIANT_START
+            + 2 * variant_keybind.index
+            + 1) as i32;
         if let Err(e) = windows_api::unregister_hot_key(None, next_id) {
             util::add_to_message(
                 warnings_string,

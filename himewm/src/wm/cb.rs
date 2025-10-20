@@ -1,4 +1,4 @@
-use crate::{windows_api, wm, wm_messages, wm_util};
+use crate::{windows_api, wm};
 use windows::{
     core::*,
     Win32::{
@@ -18,17 +18,17 @@ pub extern "system" fn event_handler(
     _dwmseventtime: u32,
 ) {
     if event == EVENT_OBJECT_DESTROY {
-        if !wm_util::has_sizebox(hwnd) {
+        if !wm::util::has_sizebox(hwnd) {
             return;
         }
-    } else if !wm_util::is_overlapped_window(hwnd) {
+    } else if !wm::util::is_overlapped_window(hwnd) {
         return;
     }
     match event {
         EVENT_OBJECT_SHOW if idobject == OBJID_WINDOW.0 => {
             windows_api::post_message(
                 None,
-                wm_messages::messages::WINDOW_CREATED,
+                wm::messages::messages::WINDOW_CREATED,
                 WPARAM(hwnd.0 as usize),
                 LPARAM::default(),
             )
@@ -37,17 +37,17 @@ pub extern "system" fn event_handler(
         EVENT_OBJECT_DESTROY if idobject == OBJID_WINDOW.0 => {
             windows_api::post_message(
                 None,
-                wm_messages::messages::WINDOW_DESTROYED,
+                wm::messages::messages::WINDOW_DESTROYED,
                 WPARAM(hwnd.0 as usize),
                 LPARAM::default(),
             )
             .unwrap();
         }
         EVENT_OBJECT_LOCATIONCHANGE => {
-            if wm_util::is_restored(hwnd) {
+            if wm::util::is_restored(hwnd) {
                 windows_api::post_message(
                     None,
-                    wm_messages::messages::WINDOW_RESTORED,
+                    wm::messages::messages::WINDOW_RESTORED,
                     WPARAM(hwnd.0 as usize),
                     LPARAM::default(),
                 )
@@ -55,7 +55,7 @@ pub extern "system" fn event_handler(
             } else {
                 windows_api::post_message(
                     None,
-                    wm_messages::messages::STOP_MANAGING_WINDOW,
+                    wm::messages::messages::STOP_MANAGING_WINDOW,
                     WPARAM(hwnd.0 as usize),
                     LPARAM::default(),
                 )
@@ -65,7 +65,7 @@ pub extern "system" fn event_handler(
         EVENT_OBJECT_HIDE if idobject == OBJID_WINDOW.0 => {
             windows_api::post_message(
                 None,
-                wm_messages::messages::STOP_MANAGING_WINDOW,
+                wm::messages::messages::STOP_MANAGING_WINDOW,
                 WPARAM(hwnd.0 as usize),
                 LPARAM::default(),
             )
@@ -74,7 +74,7 @@ pub extern "system" fn event_handler(
         EVENT_OBJECT_CLOAKED if idobject == OBJID_WINDOW.0 => {
             windows_api::post_message(
                 None,
-                wm_messages::messages::WINDOW_CLOAKED,
+                wm::messages::messages::WINDOW_CLOAKED,
                 WPARAM(hwnd.0 as usize),
                 LPARAM::default(),
             )
@@ -83,7 +83,7 @@ pub extern "system" fn event_handler(
         EVENT_OBJECT_UNCLOAKED if idobject == OBJID_WINDOW.0 => {
             windows_api::post_message(
                 None,
-                wm_messages::messages::WINDOW_UNCLOAKED,
+                wm::messages::messages::WINDOW_UNCLOAKED,
                 WPARAM(hwnd.0 as usize),
                 LPARAM::default(),
             )
@@ -92,7 +92,7 @@ pub extern "system" fn event_handler(
         EVENT_SYSTEM_FOREGROUND | EVENT_OBJECT_FOCUS => {
             windows_api::post_message(
                 None,
-                wm_messages::messages::FOREGROUND_WINDOW_CHANGED,
+                wm::messages::messages::FOREGROUND_WINDOW_CHANGED,
                 WPARAM(hwnd.0 as usize),
                 LPARAM::default(),
             )
@@ -101,7 +101,7 @@ pub extern "system" fn event_handler(
         EVENT_SYSTEM_MOVESIZEEND => {
             windows_api::post_message(
                 None,
-                wm_messages::messages::WINDOW_MOVE_FINISHED,
+                wm::messages::messages::WINDOW_MOVE_FINISHED,
                 WPARAM(hwnd.0 as usize),
                 LPARAM::default(),
             )
@@ -120,7 +120,7 @@ pub unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) 
     let monitor_handle = windows_api::monitor_from_window(hwnd, MONITOR_DEFAULTTONULL);
     if monitor_handle.is_invalid()
         || !windows_api::is_window_visible(hwnd).as_bool()
-        || !wm_util::is_overlapped_window(hwnd)
+        || !wm::util::is_overlapped_window(hwnd)
     {
         return true.into();
     }
