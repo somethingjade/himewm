@@ -1,11 +1,11 @@
-use crate::{directories::*, util};
+use crate::{directories, util};
 use himewm_layout::{layout::*, user_layout::*};
 
 pub fn initialize_layouts(
     warnings_string: &mut String,
 ) -> Option<Vec<(std::path::PathBuf, Layout)>> {
     let mut ret = Vec::new();
-    let dirs = Directories::new();
+    let dirs = directories::Directories::new();
     for entry_result in std::fs::read_dir(dirs.layouts_dir).unwrap() {
         match entry_result {
             Ok(entry) => match std::fs::read(entry.path()) {
