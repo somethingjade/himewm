@@ -1,13 +1,4 @@
-use crate::{
-    settings,
-    window_rules,
-    windows_api,
-    // wm::{
-    //     cb,
-    //     messages,
-    //     util
-    // }
-};
+use crate::{settings, window_rules, windows_api};
 use himewm_layout::layout::*;
 use windows::{
     core::*,
@@ -19,10 +10,10 @@ use windows::{
     },
 };
 
-pub mod cb;
+mod cb;
 pub mod message_handler;
 pub mod messages;
-pub mod util;
+mod util;
 
 pub enum CycleDirection {
     Previous,
