@@ -835,15 +835,11 @@ impl WindowManager {
             CycleDirection::Previous => {
                 if workspace.variant_idx[idx] != 0 {
                     workspace.variant_idx[idx] -= 1;
-                } else {
-                    workspace.variant_idx[idx] = variants_len - 1;
                 }
             }
             CycleDirection::Next => {
                 if workspace.variant_idx[idx] != variants_len - 1 {
                     workspace.variant_idx[idx] += 1;
-                } else {
-                    workspace.variant_idx[idx] = 0;
                 }
             }
         }
