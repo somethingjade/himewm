@@ -11,9 +11,12 @@ use windows::{
 };
 
 mod cb;
+#[macro_use]
+mod macros;
+mod util;
+
 pub mod message_handler;
 pub mod messages;
-mod util;
 
 pub enum CycleDirection {
     Previous,
@@ -319,13 +322,9 @@ impl WindowManager {
     }
 
     pub fn window_destroyed(&mut self, hwnd: HWND) {
-        let window_info = match self.window_info.get(&hwnd.0) {
-            Some(val) => val,
-            None => {
-                self.ignored_windows.remove(&hwnd.0);
-                return;
-            }
-        };
+        let window_info = window_info!(self, hwnd; {
+            self.ignored_windows.remove(&hwnd.0);
+        });
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -343,10 +342,7 @@ impl WindowManager {
     }
 
     pub fn stop_managing_window(&mut self, hwnd: HWND) {
-        let window_info = match self.window_info.get_mut(&hwnd.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info_mut!(self, hwnd, true);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -370,10 +366,7 @@ impl WindowManager {
     }
 
     pub fn window_cloaked(&mut self, hwnd: HWND) {
-        let window_info = match self.window_info.get(&hwnd.0) {
-            Some(val) => val,
-            None => return,
-        };
+        let window_info = window_info!(self, hwnd);
         self.desktop_switching_state.uncloak_count = 0;
         self.desktop_switching_state.max_uncloak_count = 0;
         let WindowInfo {
@@ -411,10 +404,7 @@ impl WindowManager {
     }
 
     pub fn window_uncloaked(&mut self, hwnd: HWND) {
-        let window_info = match self.window_info.get(&hwnd.0) {
-            Some(val) => val,
-            None => return,
-        };
+        let window_info = window_info!(self, hwnd);
         let WindowInfo {
             desktop_id: uncloaked_desktop_id,
             monitor_handle: current_monitor_handle,
@@ -578,10 +568,7 @@ impl WindowManager {
         if self.ignored_windows.contains(&hwnd.0) {
             return;
         }
-        let window_info = match self.window_info.get_mut(&hwnd.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info_mut!(self, hwnd, true);
         let WindowInfo {
             desktop_id,
             monitor_handle: original_monitor_handle,
@@ -707,10 +694,7 @@ impl WindowManager {
             Some(hwnd) if !self.ignored_windows.contains(&hwnd.0) => hwnd,
             _ => return,
         };
-        let window_info = match self.window_info.get(&foreground_window.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info!(self, foreground_window, true);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -748,10 +732,7 @@ impl WindowManager {
         if self.ignored_windows.contains(&foreground_window.0) {
             return;
         }
-        let window_info = match self.window_info.get(&foreground_window.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info!(self, foreground_window, true);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -793,10 +774,7 @@ impl WindowManager {
             Some(hwnd) => hwnd,
             None => return,
         };
-        let window_info = match self.window_info.get(&foreground_window.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info!(self, foreground_window, true);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -851,10 +829,7 @@ impl WindowManager {
             Some(hwnd) => hwnd,
             None => return,
         };
-        let window_info = match self.window_info.get(&foreground_window.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info!(self, foreground_window, true);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -904,10 +879,7 @@ impl WindowManager {
             Some(hwnd) => hwnd,
             None => return,
         };
-        let window_info = match self.window_info.get(&foreground_window.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info!(self, foreground_window, true);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -957,10 +929,7 @@ impl WindowManager {
             _ => return,
         };
         let original_dpi = windows_api::get_dpi_for_window(foreground_window);
-        let window_info = match self.window_info.get(&foreground_window.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let window_info = window_info!(self, foreground_window, true);
         let WindowInfo {
             desktop_id,
             monitor_handle: original_monitor_handle,
@@ -1097,10 +1066,7 @@ impl WindowManager {
             Some(hwnd) if hwnd != grabbed_window => hwnd,
             _ => return,
         };
-        let new_window_info = match self.window_info.get(&foreground_window.0) {
-            Some(val) if val.restored => val,
-            _ => return,
-        };
+        let new_window_info = window_info!(self, foreground_window, true);
         let WindowInfo {
             desktop_id: new_desktop_id,
             monitor_handle: new_monitor_handle,
@@ -1210,10 +1176,7 @@ impl WindowManager {
             monitor_handle,
             restored,
             idx,
-        } = match self.window_info.get(&foreground_window.0) {
-            Some(val) => val.to_owned(),
-            None => return,
-        };
+        } = window_info_owned!(self, foreground_window);
         if self
             .ignored_combinations
             .contains(&(desktop_id, monitor_handle.0))
@@ -1279,10 +1242,7 @@ impl WindowManager {
             desktop_id,
             monitor_handle,
             ..
-        } = match self.window_info.get(&foreground_window.0) {
-            Some(val) => val,
-            None => return,
-        };
+        } = window_info!(self, foreground_window);
         let workspace = match self.workspaces.get(&(*desktop_id, monitor_handle.0)) {
             Some(w) => w,
             None => return,
@@ -1314,10 +1274,7 @@ impl WindowManager {
             desktop_id,
             monitor_handle,
             ..
-        } = match self.window_info.get(&foreground_window.0) {
-            Some(val) => val.to_owned(),
-            None => return,
-        };
+        } = window_info_owned!(self, foreground_window);
         if self
             .ignored_combinations
             .contains(&(desktop_id, monitor_handle.0))
@@ -1486,10 +1443,7 @@ impl WindowManager {
             desktop_id,
             monitor_handle,
             ..
-        } = match self.window_info.get(&hwnd.0) {
-            Some(val) => val,
-            None => return,
-        };
+        } = window_info!(self, hwnd);
         if !self
             .ignored_combinations
             .contains(&(*desktop_id, monitor_handle.0))
@@ -1574,10 +1528,7 @@ impl WindowManager {
     }
 
     fn center_window(&self, hwnd: HWND) {
-        let window_info = match self.window_info.get(&hwnd.0) {
-            Some(val) => val,
-            None => return,
-        };
+        let window_info = window_info!(self, hwnd);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -1599,10 +1550,7 @@ impl WindowManager {
     }
 
     fn add_hwnd_to_workspace(&mut self, guid: GUID, hmonitor: HMONITOR, hwnd: HWND) {
-        let window_info = match self.window_info.get_mut(&hwnd.0) {
-            Some(val) => val,
-            None => return,
-        };
+        let window_info = window_info_mut!(self, hwnd);
         window_info.desktop_id = guid;
         window_info.monitor_handle = hmonitor;
         match self.workspaces.get_mut(&(guid, hmonitor.0)) {
@@ -1628,10 +1576,7 @@ impl WindowManager {
     }
 
     fn remove_hwnd_from_workspace(&mut self, hwnd: HWND) {
-        let window_info = match self.window_info.get_mut(&hwnd.0) {
-            Some(val) => val,
-            None => return,
-        };
+        let window_info = window_info!(self, hwnd);
         let WindowInfo {
             desktop_id,
             monitor_handle,
@@ -1647,10 +1592,7 @@ impl WindowManager {
     }
 
     fn insert_hwnd(&mut self, guid: GUID, hmonitor: HMONITOR, idx: usize, hwnd: HWND) {
-        let window_info = match self.window_info.get_mut(&hwnd.0) {
-            Some(val) => val,
-            None => return,
-        };
+        let window_info = window_info_mut!(self, hwnd);
         window_info.desktop_id = guid;
         window_info.monitor_handle = hmonitor;
         match self.workspaces.get_mut(&(guid, hmonitor.0)) {
