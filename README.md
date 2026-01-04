@@ -14,4 +14,7 @@ himewm is controlled using customizable hotkeys, which are built-in.
 Layouts are user-defined and use JSON. Configuration files are also in JSON.
 
 # Status
-himewm is currently usable, but very unstable.
+To-do:
+- [ ] Add layout validation
+- [ ] Add monitor hot-plug support
+- [ ] Investigate crashes
