@@ -16,5 +16,5 @@ Layouts are user-defined and use JSON. Configuration files are also in JSON.
 # Status
 To-do:
 - [ ] Add layout validation
-- [ ] Add monitor hot-plug support
+- [ ] Improve multi-monitor support
 - [ ] Investigate crashes
